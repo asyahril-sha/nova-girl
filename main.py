@@ -8425,7 +8425,7 @@ print("="*70)
 # ===================== BAB 12: MAIN FUNCTION & ENTRY POINT =====================
 # Bagian 12.1: Setup & Handlers
 # Bagian 12.2: Error Handler
-# Bagian 12.3: Webhook Setup (Production Ready)
+# Bagian 12.3: Webhook Setup
 # Bagian 12.4: Startup & Graceful Shutdown
 
 # ===== WEBHOOK SETUP UNTUK RAILWAY =====
@@ -8481,37 +8481,34 @@ def favicon():
     """Handle favicon requests"""
     return '', 204
 
-# ===== FLASK SERVER =====
-
 def run_flask():
-    """Run Flask app for webhook dengan production-friendly mode"""
+    """Run Flask app for webhook"""
     port = int(os.getenv('PORT', 8080))
-    # Production mode: debug=False, threaded=True
-    flask_app.run(
-        host='0.0.0.0', 
-        port=port, 
-        debug=False,      # ← Matikan debug mode
-        threaded=True     # ← Handle multiple requests
-    )
+    flask_app.run(host='0.0.0.0', port=port, debug=False, threaded=True)
 
-def start_webhook(bot):
-    """Start bot with webhook"""
-    global bot_instance
-    bot_instance = bot
-    
-    # Dapatkan URL dari Railway
+def get_railway_url():
+    """Dapatkan URL Railway dari berbagai sumber"""
     railway_url = os.getenv('RAILWAY_PUBLIC_DOMAIN', '')
-    if not railway_url:
-        railway_url = os.getenv('RAILWAY_STATIC_URL', '')
-    
-    # Jalankan Flask di thread terpisah
-    flask_thread = threading.Thread(target=run_flask)
-    flask_thread.daemon = True
-    flask_thread.start()
-    print(f"✅ Flask server started on port {os.getenv('PORT', '8080')}")
-    
-    # Set webhook jika di Railway
     if railway_url:
+        return railway_url
+    
+    railway_url = os.getenv('RAILWAY_STATIC_URL', '')
+    if railway_url:
+        return railway_url
+    
+    railway_url = os.getenv('RAILWAY_SERVICE_NAME', '')
+    if railway_url:
+        return f"{railway_url}.railway.app"
+    
+    return None
+
+def setup_webhook():
+    """Set webhook Telegram"""
+    global bot_instance
+    
+    railway_url = get_railway_url()
+    
+    if railway_url and bot_instance:
         webhook_url = f"https://{railway_url}/webhook"
         try:
             token = Config.TELEGRAM_TOKEN
@@ -8521,23 +8518,29 @@ def start_webhook(bot):
             )
             if response.status_code == 200 and response.json().get('ok'):
                 print(f"✅ Webhook set to: {webhook_url}")
-                print(f"✅ Healthcheck endpoints: /, /health, /null")
+                return True
             else:
                 print(f"❌ Failed to set webhook: {response.text}")
         except Exception as e:
             print(f"❌ Error setting webhook: {e}")
     else:
-        print("⚠️ No Railway URL found, webhook not set")
-        print("⚠️ Bot akan menggunakan polling mode")
+        print("⚠️ Railway URL not found, using polling mode")
     
-    return True
+    return False
+
+async def start_polling():
+    """Start polling mode as fallback"""
+    global bot_instance
+    if bot_instance and hasattr(bot_instance, 'application'):
+        print("🚀 Starting polling mode...")
+        await bot_instance.application.run_polling()
 
 # ===== MAIN ASYNC FUNCTION =====
 
 async def main():
     """
     Main async function to run the bot
-    Setup all handlers and start webhook
+    Setup all handlers and start webhook/polling
     """
     # Print startup banner
     print("\n" + "="*70)
@@ -8548,6 +8551,8 @@ async def main():
     
     # Initialize bot instance
     bot = GadisUltimateV60()
+    global bot_instance
+    bot_instance = bot
     
     # ===== SETUP REQUEST DENGAN TIMEOUT BESAR =====
     request = HTTPXRequest(
@@ -8560,11 +8565,10 @@ async def main():
     
     # Build application dengan custom request
     app = Application.builder().token(Config.TELEGRAM_TOKEN).request(request).build()
-    bot.application = app  # Simpan reference ke application
+    bot.application = app
     
-    # ===== CONVERSATION HANDLERS DENGAN per_message=True =====
+    # ===== CONVERSATION HANDLERS (tanpa per_message) =====
     
-    # 1. START Conversation Handler
     start_conv = ConversationHandler(
         entry_points=[CommandHandler('start', bot.start_command)],
         states={
@@ -8581,11 +8585,9 @@ async def main():
         },
         fallbacks=[CommandHandler('cancel', bot.cancel_command)],
         name="start_conversation",
-        persistent=False,
-        per_message=True
+        persistent=False
     )
     
-    # 2. END Conversation Handler
     end_conv = ConversationHandler(
         entry_points=[CommandHandler('end', bot.end_command)],
         states={
@@ -8593,11 +8595,9 @@ async def main():
         },
         fallbacks=[CommandHandler('cancel', bot.cancel_command)],
         name="end_conversation",
-        persistent=False,
-        per_message=True
+        persistent=False
     )
     
-    # 3. CLOSE Conversation Handler
     close_conv = ConversationHandler(
         entry_points=[CommandHandler('close', bot.close_command)],
         states={
@@ -8605,25 +8605,22 @@ async def main():
         },
         fallbacks=[CommandHandler('cancel', bot.cancel_command)],
         name="close_conversation",
-        persistent=False,
-        per_message=True
+        persistent=False
     )
     
-    print("  • Conversation handlers created (per_message=True)")
+    print("  • Conversation handlers created")
     
     # ===== ADD ALL HANDLERS =====
     app.add_handler(start_conv)
     app.add_handler(end_conv)
     app.add_handler(close_conv)
     
-    # User commands
     app.add_handler(CommandHandler("status", bot.status_command))
     app.add_handler(CommandHandler("dominant", bot.dominant_command))
     app.add_handler(CommandHandler("pause", bot.pause_command))
     app.add_handler(CommandHandler("unpause", bot.unpause_command))
     app.add_handler(CommandHandler("help", bot.help_command))
     
-    # Admin commands
     app.add_handler(CommandHandler("admin", bot.admin_command))
     app.add_handler(CommandHandler("stats", bot.stats_command))
     app.add_handler(CommandHandler("db_stats", bot.db_stats_command))
@@ -8634,18 +8631,14 @@ async def main():
     app.add_handler(CommandHandler("backup_db", bot.backup_db_command))
     app.add_handler(CommandHandler("vacuum", bot.vacuum_command))
     app.add_handler(CommandHandler("memory_stats", bot.memory_stats_command))
-    
-    # Hidden commands
     app.add_handler(CommandHandler("reset", bot.force_reset_command))
     
-    # Message handler
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, bot.handle_message))
     
     print("  • All handlers registered")
     
     # ===== ERROR HANDLER =====
     async def error_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
-        """Handle errors that occur during updates"""
         logger.error(f"Exception while handling an update: {context.error}", exc_info=True)
         
         if update and update.effective_message:
@@ -8677,6 +8670,19 @@ async def main():
     asyncio.create_task(bot.start_background_tasks(app))
     print("  • Background tasks started")
     
+    # ===== START FLASK SERVER =====
+    flask_thread = threading.Thread(target=run_flask)
+    flask_thread.daemon = True
+    flask_thread.start()
+    print(f"✅ Flask server started on port {os.getenv('PORT', '8080')}")
+    
+    # ===== SETUP WEBHOOK =====
+    if setup_webhook():
+        print("🚀 Bot is running with WEBHOOK...")
+    else:
+        print("🚀 Bot is running with POLLING (fallback)...")
+        asyncio.create_task(start_polling())
+    
     # ===== STARTUP COMPLETE =====
     print("\n" + "="*70)
     print("✅ **BOT READY!**")
@@ -8686,6 +8692,8 @@ async def main():
     print(f"• Admin ID: {Config.ADMIN_ID if Config.ADMIN_ID != 0 else 'Tidak diset'}")
     print(f"• Target level: {Config.TARGET_LEVEL} in {Config.LEVEL_UP_TIME} menit")
     print(f"• Rate limit: {Config.MAX_MESSAGES_PER_MINUTE} pesan/menit")
+    print(f"• Server: Flask (threaded)")
+    print(f"• Port: {os.getenv('PORT', '8080')}")
     
     print("\n📝 **USER COMMANDS:**")
     print("• /start     - Mulai hubungan baru")
@@ -8710,19 +8718,7 @@ async def main():
         print("• /vacuum    - Optimasi database")
         print("• /memory_stats - Statistik memori")
     
-    print("\n" + "="*70)
-    
-    # ===== START WEBHOOK =====
-    webhook_started = start_webhook(bot)
-    
-    if webhook_started:
-        print("🚀 Bot is running with WEBHOOK...")
-    else:
-        print("🚀 Bot is running with POLLING (fallback)...")
-        await app.run_polling()
-        return
-    
-    print("="*70 + "\n")
+    print("\n" + "="*70 + "\n")
     
     # Keep the main thread alive
     try:
