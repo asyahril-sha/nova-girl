@@ -5106,7 +5106,9 @@ class AIResponseGenerator:
         # Batasi history
         if len(self.conversation_history[user_id]) > self.max_history * 2:
             self.conversation_history[user_id] = self.conversation_history[user_id][-self.max_history*2:]
-            # ===================== BAB 6.2: Prompt Builder =====================
+
+
+# ===================== BAB 6.2: Prompt Builder =====================
 
     def _build_prompt(self, 
                       user_id: int,
@@ -5304,8 +5306,6 @@ RESPON:"""
         return prompt
 
 
-print("✅ Bagian 6.1 dan 6.2 selesai: Prompt Builder & API Call")
-print("="*70)
 # ===================== BAB 6.3: Generate & Fallback Responses =====================
 
     async def generate(self,
@@ -5372,7 +5372,7 @@ print("="*70)
             
             self._update_history(user_id, user_message, fallback)
             return fallback
-    
+
     def _get_fallback_response(self, 
                                 level: int, 
                                 arousal: float, 
@@ -5456,20 +5456,20 @@ print("="*70)
             ])
         
         return random.choice(fallbacks["default"])
-    
+
     def clear_history(self, user_id: int) -> bool:
         """Hapus history percakapan user"""
         if user_id in self.conversation_history:
             del self.conversation_history[user_id]
             return True
         return False
-    
+
     def get_history_length(self, user_id: int) -> int:
         """Dapatkan panjang history user"""
         if user_id not in self.conversation_history:
             return 0
         return len(self.conversation_history[user_id])
-    
+
     def get_cache_stats(self) -> Dict:
         """Dapatkan statistik cache"""
         total = self.cache_hits + self.cache_misses
@@ -5483,7 +5483,7 @@ print("="*70)
             "failed_calls": self.failed_calls,
             "total_tokens": self.total_tokens_used
         }
-    
+
     def get_conversation_summary(self, user_id: int, max_lines: int = 5) -> str:
         """Dapatkan ringkasan percakapan untuk user"""
         if user_id not in self.conversation_history:
@@ -5497,7 +5497,7 @@ print("="*70)
             lines.append(f"{role} {content}")
         
         return "\n".join(lines)
-    
+
     def export_conversation(self, user_id: int) -> str:
         """Ekspor seluruh percakapan dalam format teks"""
         if user_id not in self.conversation_history:
@@ -5512,8 +5512,6 @@ print("="*70)
         return "\n".join(lines)
 
 
-print("✅ Bagian 6.3 selesai: Generate & Fallback Responses")
-print("="*70)
 print("✅ BAB 6 Selesai: AI Response Generator")
 print("="*70)
 # ===================== BAB 7: DATABASE MANAGER =====================
