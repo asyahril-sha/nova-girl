@@ -6217,6 +6217,8 @@ print("✅ BAB 7 Selesai: Database Manager")
 print("="*70)
 # ===================== BAB 8: MAIN BOT CLASS - CORE =====================
 # Bagian 8.1: Initialization
+# Bagian 8.2: Session Management
+# Bagian 8.3: Stats & Utilities
 
 class GadisUltimateV60:
     """
@@ -6302,11 +6304,6 @@ class GadisUltimateV60:
         print(f"📊 Rate Limit: {Config.MAX_MESSAGES_PER_MINUTE} msg/min")
         print("="*60 + "\n")
 
-
-print("✅ Bagian 8.1 selesai: Initialization")
-print("="*70)
-# ===================== BAB 8.2: Session Management =====================
-
     # ===== GETTER METHODS =====
     
     def get_session(self, user_id: int) -> Optional[UserSession]:
@@ -6320,7 +6317,7 @@ print("="*70)
                 return None
         
         return self.sessions.get(user_id)
-    
+
     def _load_session_from_db(self, user_id: int, rel: Dict):
         """Load session dari database"""
         session = UserSession(
@@ -6365,39 +6362,39 @@ print("="*70)
         
         self.sessions[user_id] = session
         logger.debug(f"Loaded session for user {user_id} from database")
-    
+
     def get_hippocampus(self, user_id: int) -> HippocampusMemory:
         """Dapatkan atau buat hippocampus memory untuk user"""
         if user_id not in self.hippocampus:
             self.hippocampus[user_id] = HippocampusMemory(user_id)
         return self.hippocampus[user_id]
-    
+
     def get_inner_thought(self, user_id: int) -> InnerThoughtSystem:
         """Dapatkan inner thought system untuk user"""
         if user_id not in self.inner_thoughts:
             hippocampus = self.get_hippocampus(user_id)
             self.inner_thoughts[user_id] = InnerThoughtSystem(self.ai, hippocampus, user_id)
         return self.inner_thoughts[user_id]
-    
+
     def get_story_developer(self, user_id: int) -> StoryDeveloper:
         """Dapatkan story developer untuk user"""
         if user_id not in self.story_developers:
             hippocampus = self.get_hippocampus(user_id)
             self.story_developers[user_id] = StoryDeveloper(self.ai, hippocampus, user_id)
         return self.story_developers[user_id]
-    
+
     def get_location_system(self, user_id: int) -> LocationSystem:
         """Dapatkan location system untuk user"""
         if user_id not in self.location_systems:
             self.location_systems[user_id] = LocationSystem()
         return self.location_systems[user_id]
-    
+
     def get_position_system(self, user_id: int) -> PositionSystem:
         """Dapatkan position system untuk user"""
         if user_id not in self.position_systems:
             self.position_systems[user_id] = PositionSystem()
         return self.position_systems[user_id]
-    
+
     def update_clothing(self, user_id: int, clothing: str = None):
         """Update pakaian user"""
         session = self.get_session(user_id)
@@ -6416,7 +6413,7 @@ print("="*70)
         
         session.last_clothing_update = datetime.now()
         self.db.update_clothing(user_id, session.bot_clothing)
-    
+
     # ===== SESSION CONTROL =====
     
     def create_session(self, user_id: int, bot_name: str, bot_role: str, 
@@ -6449,7 +6446,7 @@ print("="*70)
         
         logger.info(f"✨ New session created: User {user_id} as {bot_name} ({bot_role})")
         return True
-    
+
     def pause_session(self, user_id: int) -> bool:
         """Pause session"""
         if user_id not in self.sessions:
@@ -6468,7 +6465,7 @@ print("="*70)
         
         logger.info(f"⏸️ Session paused for user {user_id}")
         return True
-    
+
     def unpause_session(self, user_id: int) -> bool:
         """Unpause session"""
         if user_id not in self.paused_sessions:
@@ -6492,7 +6489,7 @@ print("="*70)
         
         logger.info(f"▶️ Session unpaused for user {user_id}")
         return True
-    
+
     def close_session(self, user_id: int, save: bool = True) -> bool:
         """Close session (soft reset - save to DB)"""
         if save and user_id in self.sessions:
@@ -6503,7 +6500,7 @@ print("="*70)
         
         logger.info(f"🔒 Session closed for user {user_id}")
         return True
-    
+
     def end_session(self, user_id: int) -> bool:
         """End session (hard reset - delete from DB)"""
         # Delete from database
@@ -6520,7 +6517,7 @@ print("="*70)
         
         logger.info(f"💔 Session ended (hard reset) for user {user_id}")
         return True
-    
+
     def _cleanup_user_memory(self, user_id: int, hard: bool = False):
         """Bersihkan semua data user dari memory"""
         # Remove from sessions
@@ -6559,7 +6556,7 @@ print("="*70)
         self.ai.clear_history(user_id)
         
         logger.info(f"🧹 Hard cleanup for user {user_id}")
-    
+
     def save_session_to_db(self, user_id: int) -> bool:
         """Simpan session ke database"""
         if user_id not in self.sessions:
@@ -6598,25 +6595,20 @@ print("="*70)
         logger.debug(f"💾 Session saved for user {user_id}")
         return True
 
-
-print("✅ Bagian 8.2 selesai: Session Management")
-print("="*70)
-# ===================== BAB 8.3: Stats & Utilities =====================
-
     # ===== STATISTICS =====
     
     def is_admin(self, user_id: int) -> bool:
         """Cek apakah user adalah admin"""
         return self.admin_id != 0 and user_id == self.admin_id
-    
+
     def get_active_users_count(self) -> int:
         """Dapatkan jumlah user aktif"""
         return len(self.sessions)
-    
+
     def get_paused_users_count(self) -> int:
         """Dapatkan jumlah user yang di-pause"""
         return len(self.paused_sessions)
-    
+
     def get_total_users_count(self) -> int:
         """Dapatkan total user yang pernah menggunakan bot"""
         users = set()
@@ -6625,7 +6617,7 @@ print("="*70)
         users.update(self.hippocampus.keys())
         users.update(self.db.get_all_users())
         return len(users)
-    
+
     def get_uptime(self) -> str:
         """Dapatkan uptime bot dalam format string"""
         delta = datetime.now() - self.start_time
@@ -6645,7 +6637,7 @@ print("="*70)
             parts.append(f"{seconds} detik")
         
         return " ".join(parts) if parts else "0 detik"
-    
+
     def get_stats(self) -> Dict:
         """Dapatkan statistik bot untuk admin"""
         # Hitung total climax dari semua user
@@ -6676,7 +6668,7 @@ print("="*70)
                 "sessions": len(self.sessions)
             }
         }
-    
+
     # ===== UTILITY METHODS =====
     
     async def broadcast_message(self, text: str, user_ids: List[int] = None, 
@@ -6708,7 +6700,7 @@ print("="*70)
                 failed += 1
         
         return sent, failed
-    
+
     def get_disclaimer(self) -> str:
         """Dapatkan teks disclaimer 18+"""
         return (
@@ -6730,7 +6722,7 @@ print("="*70)
             "• Story development\n\n"
             "Klik 'Saya setuju' untuk melanjutkan."
         )
-    
+
     def get_help_text(self, update: Update = None) -> str:
         """Dapatkan teks bantuan"""
         help_text = (
@@ -6776,16 +6768,16 @@ print("="*70)
             help_text += "/db_stats - Statistik database\n"
         
         return help_text
-    
+
     def log_command(self, command: str, user_id: int, username: str):
         """Log penggunaan command"""
         self.total_commands += 1
         logger.info(f"📝 Command /{command} by {username} (ID: {user_id})")
-    
+
     def track_silence(self, user_id: int):
         """Track kapan terakhir user bicara"""
         self.user_silence_tracker[user_id] = datetime.now()
-    
+
     def get_silence_duration(self, user_id: int) -> float:
         """Dapatkan durasi diam user dalam detik"""
         if user_id in self.user_silence_tracker:
@@ -6793,8 +6785,6 @@ print("="*70)
         return 0
 
 
-print("✅ Bagian 8.3 selesai: Stats & Utilities")
-print("="*70)
 print("✅ BAB 8 Selesai: Main Bot Class - Core")
 print("="*70)
 # ===================== BAB 9: MAIN BOT CLASS - COMMANDS =====================
