@@ -261,6 +261,7 @@ class Mood(Enum):
     CEMBURU = "cemburu"
     BERSALAH = "bersalah"
     BAHAGIA = "bahagia"
+    RILEKS = "rileks"
 
 
 class IntimacyStage(Enum):
