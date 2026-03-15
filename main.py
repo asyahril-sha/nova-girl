@@ -8442,10 +8442,10 @@ log.setLevel(logging.ERROR)
 flask_app = Flask(__name__)
 bot_instance = None
 
-# ===== WEBHOOK ENDPOINT (SYNC VERSION) =====
+# ===== WEBHOOK ENDPOINT (FIXED VERSION) =====
 @flask_app.route('/webhook', methods=['POST'])
 def webhook():
-    """Handle incoming webhook updates from Telegram (sync version)"""
+    """Handle incoming webhook updates from Telegram (fixed version)"""
     print("🔥🔥🔥 WEBHOOK DIPANGGIL!")
     
     global bot_instance
@@ -8458,23 +8458,23 @@ def webhook():
             # Buat update object
             update = Update.de_json(update_data, bot_instance.application.bot)
             
-            # Jalankan coroutine di event loop yang sama
-            # Ambil event loop dari bot instance
-            loop = asyncio.get_event_loop()
+            # Dapatkan atau buat event loop untuk thread ini
+            try:
+                loop = asyncio.get_event_loop()
+            except RuntimeError:
+                # Tidak ada event loop di thread ini, buat baru
+                loop = asyncio.new_event_loop()
+                asyncio.set_event_loop(loop)
             
             # Jalankan coroutine
-            if loop.is_running():
-                # Jika loop sudah running, gunakan create_task
-                asyncio.create_task(bot_instance.application.process_update(update))
-                print(f"✅ Update task created")
-            else:
-                # Jika loop belum running, run sampai selesai
-                loop.run_until_complete(bot_instance.application.process_update(update))
-                print(f"✅ Update processed synchronously")
+            loop.run_until_complete(bot_instance.application.process_update(update))
             
+            print(f"✅ Update processed successfully")
             return 'OK', 200
         except Exception as e:
             print(f"❌ Error processing webhook: {e}")
+            import traceback
+            traceback.print_exc()
             return 'Error', 500
     else:
         print(f"⚠️ Bot not ready: bot_instance={bot_instance is not None}")
