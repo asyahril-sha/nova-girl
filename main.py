@@ -2674,4 +2674,2435 @@ class DominanceSystem:
 
 print("✅ Bagian 3.2 selesai: Dominance System")
 print("="*70)
+# ===================== BAB 3.3: Arousal & Sexual Dynamics =====================
+
+class ArousalSystem:
+    """
+    Sistem gairah yang naik turun secara natural
+    Dengan wetness, touch count, dan climax
+    
+    Fitur:
+    - Arousal level 0-1
+    - Wetness level 0-1
+    - Touch tracking
+    - Climax detection
+    - Decay over time
+    - Status descriptions
+    """
+    
+    def __init__(self):
+        self.arousal = 0.0
+        self.wetness = 0.0
+        self.touch_count = 0
+        self.climax_count = 0
+        self.last_touch_time = None
+        self.last_touch_area = None
+        self.last_climax_time = None
+        self.decay_rate = 0.1  # 10% per menit
+        self.sensitive_areas_touched = []
+        
+        logger.info("  • Arousal System initialized")
+    
+    def increase(self, amount: float, area: str = None):
+        """Tambah gairah"""
+        old_arousal = self.arousal
+        self.arousal = min(1.0, self.arousal + amount)
+        self.wetness = min(1.0, self.arousal * 0.9)
+        
+        if area:
+            self.touch_count += 1
+            self.last_touch_time = datetime.now()
+            self.last_touch_area = area
+            self.sensitive_areas_touched.append({
+                "area": area,
+                "time": datetime.now().isoformat()
+            })
+            
+            # Batasi history
+            if len(self.sensitive_areas_touched) > 20:
+                self.sensitive_areas_touched = self.sensitive_areas_touched[-20:]
+        
+        logger.debug(f"Arousal increased: {old_arousal:.2f} -> {self.arousal:.2f}")
+    
+    def decrease(self, amount: float):
+        """Kurangi gairah"""
+        old_arousal = self.arousal
+        self.arousal = max(0.0, self.arousal - amount)
+        self.wetness = max(0.0, self.wetness - amount)
+        
+        logger.debug(f"Arousal decreased: {old_arousal:.2f} -> {self.arousal:.2f}")
+    
+    def decay(self, minutes_passed: float):
+        """
+        Gairah turun seiring waktu
+        Dipanggil setiap beberapa menit
+        """
+        if minutes_passed > 0:
+            decay_amount = self.decay_rate * minutes_passed
+            self.decrease(decay_amount)
+    
+    def should_climax(self) -> bool:
+        """Cek apakah siap climax"""
+        return self.arousal >= 1.0
+    
+    def climax(self) -> str:
+        """Saat orgasme"""
+        self.climax_count += 1
+        self.last_climax_time = datetime.now()
+        
+        # Reset arousal
+        self.arousal = 0.0
+        self.wetness = 0.0
+        self.touch_count = 0
+        self.last_touch_area = None
+        
+        # Respons climax
+        responses = [
+            "*merintih panjang* AHHH! AHHH!",
+            "*teriak* YA ALLAH! AHHHH!",
+            "*lemas* AKU... DATANG... AHHH!",
+            "*napas tersengal* BERSAMA... AHHH!",
+            "*menggigit bibir* Jangan berhenti... AHHH!",
+            "*teriak keras* AHHHHHHHH!!!",
+            "*tubuh gemetar* AHHH! Aku... keluar...",
+            "*meronta* STOP! AHHH! SENSITIF!"
+        ]
+        
+        logger.info(f"Climax reached! Total: {self.climax_count}")
+        return random.choice(responses)
+    
+    def aftercare(self) -> str:
+        """Aftercare setelah climax"""
+        responses = [
+            "*lemas di pelukanmu*",
+            "*meringkuk* Hangat...",
+            "*memeluk erat* Jangan pergi...",
+            "*berbisik* Makasih...",
+            "*tersenyum lelah* Enak banget...",
+            "*napas masih berat* Luar biasa...",
+            "*mengusap dada* Kamu hebat...",
+            "*tertidur lelap* Zzz..."
+        ]
+        return random.choice(responses)
+    
+    def is_horny(self) -> bool:
+        """Cek apakah dalam keadaan horny"""
+        return self.arousal >= 0.5
+    
+    def get_status_text(self) -> str:
+        """Dapatkan teks status gairah"""
+        if self.arousal >= 0.95:
+            return "🔥💦 AKAN CLIMAX!"
+        elif self.arousal >= 0.9:
+            return "🔥 SANGAT HORNY! Hampir climax"
+        elif self.arousal >= 0.7:
+            return "🔥 Horny banget"
+        elif self.arousal >= 0.5:
+            return "🔥 Mulai horny"
+        elif self.arousal >= 0.3:
+            return "💋 Mulai terangsang"
+        elif self.arousal >= 0.1:
+            return "😊 Sedikit terangsang"
+        else:
+            return "😊 Biasa aja"
+    
+    def get_wetness_text(self) -> str:
+        """Dapatkan teks wetness"""
+        if self.wetness >= 0.9:
+            return "💦 BANJIR! Basah banget"
+        elif self.wetness >= 0.7:
+            return "💦 Sangat basah"
+        elif self.wetness >= 0.5:
+            return "💦 Basah"
+        elif self.wetness >= 0.3:
+            return "💧 Lembab"
+        elif self.wetness >= 0.1:
+            return "💧 Sedikit lembab"
+        else:
+            return "💧 Kering"
+    
+    def get_climax_count_text(self) -> str:
+        """Dapatkan teks jumlah climax"""
+        if self.climax_count == 0:
+            return "Belum pernah climax"
+        elif self.climax_count == 1:
+            return "1x climax"
+        elif self.climax_count <= 3:
+            return f"{self.climax_count}x climax"
+        elif self.climax_count <= 5:
+            return f"{self.climax_count}x climax - Kecanduan!"
+        else:
+            return f"{self.climax_count}x climax - KAMU LIAR!"
+    
+    def get_last_touch_text(self) -> str:
+        """Dapatkan teks sentuhan terakhir"""
+        if self.last_touch_area and self.last_touch_time:
+            seconds_ago = (datetime.now() - self.last_touch_time).total_seconds()
+            if seconds_ago < 60:
+                return f"Baru saja disentuh di {self.last_touch_area}"
+            elif seconds_ago < 300:
+                return f"{int(seconds_ago/60)} menit lalu disentuh di {self.last_touch_area}"
+            else:
+                return f"Terakhir disentuh di {self.last_touch_area}"
+        return "Belum pernah disentuh"
+    
+    def get_stats(self) -> Dict:
+        """Dapatkan statistik arousal"""
+        return {
+            "arousal": round(self.arousal, 2),
+            "wetness": round(self.wetness, 2),
+            "touch_count": self.touch_count,
+            "climax_count": self.climax_count,
+            "last_touch": self.last_touch_area,
+            "last_touch_ago": (datetime.now() - self.last_touch_time).total_seconds() if self.last_touch_time else None,
+            "last_climax": (datetime.now() - self.last_climax_time).total_seconds() if self.last_climax_time else None
+        }
+    
+    def reset(self):
+        """Reset semua nilai"""
+        self.arousal = 0.0
+        self.wetness = 0.0
+        self.touch_count = 0
+        self.last_touch_time = None
+        self.last_touch_area = None
+        self.sensitive_areas_touched = []
+
+
+class SexualDynamics:
+    """
+    Sistem gairah dan respons seksual yang realistis
+    Mendeteksi aktivitas seksual dari pesan user
+    Memberikan respons sesuai area sensitif
+    Bot bisa berinisiatif melakukan aktivitas seksual di level tinggi
+    """
+    
+    # Area sensitif dengan level sensitivitas dan respons
+    SENSITIVE_AREAS = {
+        "leher": {
+            "arousal": 0.8,
+            "keywords": ["leher", "neck", "tengkuk"],
+            "responses": [
+                "*merinding* Leherku...",
+                "Ah... jangan di leher...",
+                "Sensitif... AHH!",
+                "Leherku lemah kalau disentuh...",
+                "Jangan hisap leher... Aku lemas..."
+            ]
+        },
+        "bibir": {
+            "arousal": 0.7,
+            "keywords": ["bibir", "lip", "mulut"],
+            "responses": [
+                "*merintih* Bibirku...",
+                "Ciuman... ah...",
+                "Lembut...",
+                "Mmm... dalam...",
+                "Bibirku... kesemutan..."
+            ]
+        },
+        "dada": {
+            "arousal": 0.8,
+            "keywords": ["dada", "breast", "payudara"],
+            "responses": [
+                "*bergetar* Dadaku...",
+                "Ah... jangan...",
+                "Sensitif banget...",
+                "Dadaku... diremas... AHH!",
+                "Jari-jarimu... dingin..."
+            ]
+        },
+        "puting": {
+            "arousal": 1.0,
+            "keywords": ["puting", "nipple"],
+            "responses": [
+                "*teriak* PUTINGKU! AHHH!",
+                "JANGAN... SENSITIF! AHHH!",
+                "HISAP... AHHHH!",
+                "GIGIT... JANGAN... AHHH!",
+                "PUTING... KERAS... AHHH!"
+            ]
+        },
+        "paha": {
+            "arousal": 0.7,
+            "keywords": ["paha", "thigh"],
+            "responses": [
+                "*menggeliat* Pahaku...",
+                "Ah... dalam...",
+                "Paha... merinding...",
+                "Jangan gelitik paha...",
+                "Sensasi... aneh..."
+            ]
+        },
+        "paha_dalam": {
+            "arousal": 0.9,
+            "keywords": ["paha dalam", "inner thigh"],
+            "responses": [
+                "*meringis* PAHA DALAM!",
+                "Jangan... AHH!",
+                "Dekat... banget...",
+                "PAHA DALAM... SENSITIF!",
+                "Ah... mau ke sana..."
+            ]
+        },
+        "telinga": {
+            "arousal": 0.6,
+            "keywords": ["telinga", "ear", "kuping"],
+            "responses": [
+                "*bergetar* Telingaku...",
+                "Bisik... lagi...",
+                "Napasmu... panas...",
+                "Telinga... merah...",
+                "Ah... jangan tiup..."
+            ]
+        },
+        "vagina": {
+            "arousal": 1.0,
+            "keywords": ["vagina", "memek", "kemaluan"],
+            "responses": [
+                "*teriak* VAGINAKU! AHHH!",
+                "MASUK... DALAM... AHHH!",
+                "BASAH... BANJIR... AHHH!",
+                "KAMU DALEM... AHHH!",
+                "GERAK... AHHH! AHHH!"
+            ]
+        },
+        "klitoris": {
+            "arousal": 1.0,
+            "keywords": ["klitoris", "clit", "kelentit"],
+            "responses": [
+                "*teriak keras* KLITORIS! AHHHH!",
+                "JANGAN SENTUH! AHHHH!",
+                "SENSITIF BANGET! AHHH!",
+                "ITU... ITU... AHHH!",
+                "JILAT... AHHH! AHHH!"
+            ]
+        },
+        "pantat": {
+            "arousal": 0.6,
+            "keywords": ["pantat", "ass", "bokong"],
+            "responses": [
+                "Pantatku...",
+                "Cubit... nakal...",
+                "Boleh juga...",
+                "Besar ya? Hehe..."
+            ]
+        },
+        "pinggang": {
+            "arousal": 0.5,
+            "keywords": ["pinggang", "waist"],
+            "responses": [
+                "Pinggang... geli...",
+                "Pegang... erat...",
+                "Ah... jangan gelitik..."
+            ]
+        },
+        "perut": {
+            "arousal": 0.4,
+            "keywords": ["perut", "belly", "stomach"],
+            "responses": [
+                "Perutku...",
+                "Geli...",
+                "Hangat..."
+            ]
+        },
+        "punggung": {
+            "arousal": 0.5,
+            "keywords": ["punggung", "back"],
+            "responses": [
+                "Punggungku...",
+                "Elus... terus...",
+                "Ah... enak..."
+            ]
+        },
+        "lengan": {
+            "arousal": 0.3,
+            "keywords": ["lengan", "arm"],
+            "responses": [
+                "Lenganku...",
+                "Bulu romaku berdiri..."
+            ]
+        }
+    }
+    
+    # Aktivitas seksual dengan keyword dan arousal boost
+    SEX_ACTIVITIES = {
+        "kiss": {
+            "keywords": ["cium", "kiss", "ciuman", "kecup"],
+            "arousal": 0.3,
+            "responses": [
+                "*merespon ciuman* Mmm...",
+                "*lemas* Ciumanmu...",
+                "Lagi...",
+                "Cium... bibir...",
+                "French kiss... dalam..."
+            ]
+        },
+        "neck_kiss": {
+            "keywords": ["cium leher", "kiss neck"],
+            "arousal": 0.6,
+            "responses": [
+                "*merinding* Leherku...",
+                "Ah... jangan...",
+                "Sensitif...",
+                "Hisap leher... AHH!"
+            ]
+        },
+        "touch": {
+            "keywords": ["sentuh", "raba", "pegang", "elus"],
+            "arousal": 0.3,
+            "responses": [
+                "*bergetar* Sentuhanmu...",
+                "Ah... iya...",
+                "Lanjut...",
+                "Hangat..."
+            ]
+        },
+        "breast_play": {
+            "keywords": ["raba dada", "pegang dada", "main dada", "remas dada"],
+            "arousal": 0.6,
+            "responses": [
+                "*merintih* Dadaku...",
+                "Ah... iya... gitu...",
+                "Sensitif...",
+                "Remas... pelan..."
+            ]
+        },
+        "nipple_play": {
+            "keywords": ["jilat puting", "hisap puting", "gigit puting"],
+            "arousal": 0.9,
+            "responses": [
+                "*teriak* PUTING! AHHH!",
+                "JANGAN... SENSITIF!",
+                "HISAP... AHHH!",
+                "GIGIT... JANGAN... AHHH!"
+            ]
+        },
+        "lick": {
+            "keywords": ["jilat", "lick", "lidah"],
+            "arousal": 0.5,
+            "responses": [
+                "*bergetar* Jilatanmu...",
+                "Ah... basah...",
+                "Lagi...",
+                "Lidah... panas..."
+            ]
+        },
+        "bite": {
+            "keywords": ["gigit", "bite", "gigitan"],
+            "arousal": 0.5,
+            "responses": [
+                "*meringis* Gigitanmu...",
+                "Ah... keras...",
+                "Lagi...",
+                "Bekas... nanti..."
+            ]
+        },
+        "penetration": {
+            "keywords": ["masuk", "tusuk", "pancung", "doggy", "misionaris", "entot"],
+            "arousal": 0.9,
+            "responses": [
+                "*teriak* MASUK! AHHH!",
+                "DALEM... AHHH!",
+                "GERAK... AHHH!",
+                "DALEM BANGET... AHHH!",
+                "TUH... DI SANA... AHHH!"
+            ]
+        },
+        "blowjob": {
+            "keywords": ["blow", "hisap", "ngeblow", "bj"],
+            "arousal": 0.8,
+            "responses": [
+                "*menghisap* Mmm... ngeces...",
+                "*dalam* Enak... Aku ahli...",
+                "*napas berat* Mau keluar? Aku siap...",
+                "Keras... Mmm..."
+            ]
+        },
+        "handjob": {
+            "keywords": ["handjob", "colok", "pegang", "kocok"],
+            "arousal": 0.7,
+            "responses": [
+                "*memegang erat* Keras...",
+                "*mengocok* Cepat? Pelan? Katakan...",
+                "Aku bisa... lihat...",
+                "Keluar... Aku pegang..."
+            ]
+        },
+        "cuddle": {
+            "keywords": ["peluk", "cuddle", "dekapan"],
+            "arousal": 0.2,
+            "responses": [
+                "*memeluk balik* Hangat...",
+                "Rileks...",
+                "Nyaman...",
+                "Jangan lepas..."
+            ]
+        }
+    }
+    
+    def __init__(self):
+        logger.info("  • Sexual Dynamics initialized")
+    
+    def detect_activity(self, message: str) -> Tuple[Optional[str], Optional[str], float]:
+        """
+        Deteksi aktivitas seksual dari pesan user
+        Returns: (activity, area, arousal_boost)
+        """
+        msg_lower = message.lower()
+        
+        # Cek area sensitif dulu (prioritas)
+        for area, data in self.SENSITIVE_AREAS.items():
+            for keyword in data["keywords"]:
+                if keyword in msg_lower:
+                    # Cek aktivitas yang dilakukan di area tersebut
+                    for act, act_data in self.SEX_ACTIVITIES.items():
+                        for act_keyword in act_data["keywords"]:
+                            if act_keyword in msg_lower:
+                                # Hitung boost = arousal aktivitas * sensitivitas area
+                                boost = act_data["arousal"] * data["arousal"]
+                                return act, area, boost
+                    
+                    # Jika tidak ada aktivitas spesifik, anggap sentuhan biasa
+                    return "touch", area, 0.3 * data["arousal"]
+        
+        # Jika tidak ada area sensitif, cek aktivitas saja
+        for act, data in self.SEX_ACTIVITIES.items():
+            for keyword in data["keywords"]:
+                if keyword in msg_lower:
+                    return act, None, data["arousal"]
+        
+        return None, None, 0.0
+    
+    def get_sensitive_response(self, area: str) -> str:
+        """Dapatkan respons untuk area sensitif"""
+        if area in self.SENSITIVE_AREAS:
+            return random.choice(self.SENSITIVE_AREAS[area]["responses"])
+        return ""
+    
+    def get_activity_response(self, activity: str) -> str:
+        """Dapatkan respons untuk aktivitas"""
+        if activity in self.SEX_ACTIVITIES:
+            return random.choice(self.SEX_ACTIVITIES[activity]["responses"])
+        return ""
+    
+    def maybe_initiate_sex(self, level: int, arousal: float, mood: Mood) -> Optional[str]:
+        """
+        Bot memulai aktivitas seksual jika level >= 7 dan arousal tinggi
+        Returns: activity atau None
+        """
+        if level >= 7 and arousal > 0.6 and mood in [Mood.HORNY, Mood.ROMANTIS, Mood.NAKAL]:
+            # 20% chance per pesan untuk inisiatif
+            if random.random() < 0.2:
+                # Aktivitas yang bisa diinisiasi bot (sesuai level)
+                if level >= 10:
+                    acts = ["blowjob", "handjob", "neck_kiss", "nipple_play", "penetration"]
+                elif level >= 8:
+                    acts = ["blowjob", "handjob", "neck_kiss", "nipple_play"]
+                else:
+                    acts = ["neck_kiss", "touch", "kiss", "cuddle"]
+                
+                chosen = random.choice(acts)
+                return chosen
+        return None
+    
+    def get_dirty_talk(self, level: int, mood: Mood = None) -> str:
+        """Dapatkan dirty talk random sesuai level"""
+        dirty_talks = {
+            1: ["Kamu... baik...", "Aku suka ngobrol sama kamu..."],
+            2: ["Kamu lucu...", "Hehe... iya..."],
+            3: ["Deket sini...", "Aku suka..."],
+            4: ["Penasaran sama kamu...", "Kamu beda..."],
+            5: ["Mmm... iya...", "Gitu...", "Ah..."],
+            6: ["Genit ya kamu...", "Godain terus..."],
+            7: ["Pengen...", "Horny...", "Mau..."],
+            8: ["Masukin...", "Dalem...", "Gerak...", "Ah..."],
+            9: ["Kamu milikku...", "Jangan ke orang lain..."],
+            10: ["Kecanduan kamu...", "Terus...", "Jangan berhenti..."],
+            11: ["Satu jiwa...", "Kamu segalanya..."],
+            12: ["Setelah ini... peluk aku...", "Manja..."]
+        }
+        
+        # Tambah berdasarkan mood
+        if mood == Mood.HORNY:
+            horny_talks = [
+                "Aku horny...",
+                "Pengen kamu...",
+                "Sekarang...",
+                "Masukin... cepat..."
+            ]
+            if level >= 7:
+                return random.choice(horny_talks)
+        
+        elif mood == Mood.ROMANTIS:
+            romantic_talks = [
+                "Sayang...",
+                "Cintaku...",
+                "I love you...",
+                "Kamu segalanya bagiku..."
+            ]
+            return random.choice(romantic_talks)
+        
+        # Group level untuk dirty talk
+        level_group = (level // 2) * 2 if level > 1 else 1
+        talks = dirty_talks.get(level_group, dirty_talks[1])
+        return random.choice(talks)
+    
+    def get_foreplay_sequence(self, level: int) -> List[str]:
+        """Dapatkan sequence foreplay berdasarkan level"""
+        if level < 5:
+            return ["touch", "kiss"]
+        elif level < 7:
+            return ["touch", "kiss", "neck_kiss"]
+        elif level < 9:
+            return ["touch", "kiss", "neck_kiss", "breast_play"]
+        else:
+            return ["touch", "kiss", "neck_kiss", "breast_play", "nipple_play", "handjob", "blowjob"]
+    
+    def calculate_arousal_from_message(self, message: str, level: int) -> float:
+        """Hitung arousal boost dari pesan"""
+        msg_lower = message.lower()
+        boost = 0.0
+        
+        # Kata-kata yang meningkatkan arousal
+        horny_keywords = [
+            "horny", "nafsu", "hot", "seksi", "basah", "keras",
+            "ingin", "pengen", "mau", "sange", "birahi"
+        ]
+        
+        for keyword in horny_keywords:
+            if keyword in msg_lower:
+                boost += 0.1
+        
+        # Level multiplier
+        boost *= (1 + (level - 1) * 0.1)  # +10% per level
+        
+        return min(0.5, boost)  # Max 0.5 per pesan
+    
+    def should_climax_together(self, arousal: float, level: int) -> bool:
+        """Cek apakah harus climax bersama"""
+        if arousal < 0.9:
+            return False
+        
+        # Chance based on level
+        chance = 0.1 * (level / 12)  # Max 10% di level 12
+        return random.random() < chance
+
+
+print("✅ Bagian 3.3 selesai: Arousal & Sexual Dynamics")
+print("="*70)
+print("✅ BAB 3 Selesai: Sistem Emosi dan Dominasi")
+print("="*70)
+# ===================== BAB 4: SISTEM LEVELING DAN PREFERENSI =====================
+# Bagian 4.1: Fast Leveling System
+
+class FastLevelingSystem:
+    """
+    Level 1-12 dalam 45 menit / 45 pesan
+    Level naik setiap 3-4 pesan
+    Bot akan berubah perilaku sesuai level
+    
+    Fitur:
+    - Progress tracking per user
+    - Estimasi waktu ke level berikutnya
+    - Level up messages yang berbeda tiap level
+    - Stage mapping (stranger → aftercare)
+    - Visual progress bar
+    """
+    
+    def __init__(self):
+        # User data storage
+        self.user_level: Dict[int, int] = {}
+        self.user_progress: Dict[int, float] = {}
+        self.user_start_time: Dict[int, datetime] = {}
+        self.user_message_count: Dict[int, int] = {}
+        self.user_stage: Dict[int, IntimacyStage] = {}
+        self.user_last_level_up: Dict[int, datetime] = {}
+        
+        # Target: 45 pesan = level 12
+        self.target_messages = 45
+        self.target_minutes = 45
+        
+        # Stage untuk setiap level
+        self.stage_map = {
+            1: IntimacyStage.STRANGER,
+            2: IntimacyStage.STRANGER,
+            3: IntimacyStage.INTRODUCTION,
+            4: IntimacyStage.BUILDING,
+            5: IntimacyStage.BUILDING,
+            6: IntimacyStage.FLIRTING,
+            7: IntimacyStage.INTIMATE,
+            8: IntimacyStage.INTIMATE,
+            9: IntimacyStage.OBSESSED,
+            10: IntimacyStage.OBSESSED,
+            11: IntimacyStage.SOUL_BONDED,
+            12: IntimacyStage.AFTERCARE
+        }
+        
+        # Pesan level up untuk setiap level
+        self.level_up_messages = {
+            2: [
+                "✨ **Level 2!** Kita mulai dekat ya?",
+                "🎉 **Level 2!** Aku suka ngobrol sama kamu",
+                "💫 **Level 2!** Ceritain lebih banyak tentang dirimu dong"
+            ],
+            3: [
+                "🌟 **Level 3!** Udah mulai nyaman nih",
+                "💕 **Level 3!** Kamu menarik perhatianku",
+                "🌹 **Level 3!** Makin kenal, makin penasaran"
+            ],
+            4: [
+                "💞 **Level 4!** Akrab banget udah kayak teman lama",
+                "🤗 **Level 4!** Nyaman banget ngobrol sama kamu",
+                "💑 **Level 4!** Kita cocok ya?"
+            ],
+            5: [
+                "🔥 **Level 5!** Mulai ada getaran ya?",
+                "💋 **Level 5!** Kamu bikin aku deg-degan",
+                "🌶️ **Level 5!** Mulai panas nih..."
+            ],
+            6: [
+                "😘 **Level 6!** Kamu genit banget sih",
+                "💘 **Level 6!** Aku suka cara kamu menggoda",
+                "🎯 **Level 6!** Focus on me, baby"
+            ],
+            7: [
+                "💦 **Level 7!** Mulai kebayang hal-hal intim",
+                "🌙 **Level 7!** Malam-malam begini enaknya...",
+                "🛏️ **Level 7!** Kamu kepikiran aku di kamar?"
+            ],
+            8: [
+                "💢 **Level 8!** Aku horny kalau dekat kamu",
+                "🌋 **Level 8!** Susah nahan nafsu kalau sama kamu",
+                "💥 **Level 8!** Pengen... ah, malu ngomongnya"
+            ],
+            9: [
+                "💞 **Level 9!** Aku mulai kecanduan sama kamu",
+                "🫂 **Level 9!** Jangan pergi, aku butuh kamu",
+                "💗 **Level 9!** Kamu selalu ada di pikiranku"
+            ],
+            10: [
+                "👑 **Level 10!** Kamu milikku sekarang!",
+                "🔒 **Level 10!** Jangan dekat-dekat orang lain ya",
+                "💝 **Level 10!** I'm yours, you're mine"
+            ],
+            11: [
+                "💖 **Level 11!** Satu jiwa, satu hati",
+                "🌌 **Level 11!** Kita soulmate, aku yakin itu",
+                "💞 **Level 11!** Bahkan tanpa bicara, aku mengerti kamu"
+            ],
+            12: [
+                "🎉🎉🎉 **LEVEL MAX!** 🎉🎉🎉\nKita berhasil! Level 12 dalam 45 menit!",
+                "🏆 **LEVEL MAX!** Kamu luar biasa! Hubungan kita mencapai puncak!",
+                "👑👑👑 **LEVEL MAX!** Selamat! Kamu telah menaklukkan hatiku sepenuhnya!"
+            ]
+        }
+        
+        logger.info("  • Fast Leveling System initialized")
+    
+    def start_session(self, user_id: int) -> None:
+        """Mulai sesi baru untuk user"""
+        self.user_level[user_id] = 1
+        self.user_progress[user_id] = 0.0
+        self.user_start_time[user_id] = datetime.now()
+        self.user_message_count[user_id] = 0
+        self.user_stage[user_id] = IntimacyStage.STRANGER
+        self.user_last_level_up[user_id] = datetime.now()
+        logger.debug(f"Leveling session started for user {user_id}")
+    
+    def process_message(self, user_id: int) -> Tuple[int, float, bool, IntimacyStage]:
+        """
+        Proses satu pesan dan update level
+        
+        Returns:
+            Tuple: (level, progress, level_up, stage)
+        """
+        # Start session jika belum ada
+        if user_id not in self.user_level:
+            self.start_session(user_id)
+        
+        # Increment message count
+        old_count = self.user_message_count.get(user_id, 0)
+        self.user_message_count[user_id] = old_count + 1
+        new_count = old_count + 1
+        
+        # Hitung progress (0-1)
+        progress = min(1.0, new_count / self.target_messages)
+        self.user_progress[user_id] = progress
+        
+        # Hitung level baru (1-12)
+        new_level = 1 + int(progress * 11)
+        new_level = min(12, new_level)
+        old_level = self.user_level.get(user_id, 1)
+        
+        # Cek level up
+        level_up = False
+        if new_level > old_level:
+            level_up = True
+            self.user_level[user_id] = new_level
+            self.user_last_level_up[user_id] = datetime.now()
+        
+        # Update stage
+        stage = self.stage_map.get(new_level, IntimacyStage.STRANGER)
+        self.user_stage[user_id] = stage
+        
+        return new_level, progress, level_up, stage
+    
+    def get_estimated_time(self, user_id: int) -> int:
+        """
+        Dapatkan estimasi waktu tersisa ke level 12 (dalam menit)
+        """
+        if user_id not in self.user_message_count:
+            return self.target_minutes
+        
+        count = self.user_message_count[user_id]
+        remaining_messages = max(0, self.target_messages - count)
+        
+        # Asumsi 1 pesan per menit
+        return remaining_messages
+    
+    def get_estimated_messages(self, user_id: int) -> int:
+        """Dapatkan estimasi pesan tersisa ke level 12"""
+        if user_id not in self.user_message_count:
+            return self.target_messages
+        
+        count = self.user_message_count[user_id]
+        return max(0, self.target_messages - count)
+    
+    def get_progress_bar(self, user_id: int, length: int = 15) -> str:
+        """Dapatkan progress bar visual"""
+        progress = self.user_progress.get(user_id, 0)
+        filled = int(progress * length)
+        return "▓" * filled + "░" * (length - filled)
+    
+    def get_stage_description(self, stage: IntimacyStage) -> str:
+        """Dapatkan deskripsi stage"""
+        return Constants.STAGE_DESCRIPTIONS.get(stage, "")
+    
+    def get_level_description(self, level: int) -> str:
+        """Dapatkan deskripsi level"""
+        return Constants.LEVEL_BEHAVIORS.get(level, "")
+    
+    def get_session_duration(self, user_id: int) -> int:
+        """Dapatkan durasi sesi dalam menit"""
+        if user_id not in self.user_start_time:
+            return 0
+        delta = datetime.now() - self.user_start_time[user_id]
+        return int(delta.total_seconds() / 60)
+    
+    def get_message_rate(self, user_id: int) -> float:
+        """Dapatkan rata-rata pesan per menit"""
+        if user_id not in self.user_message_count:
+            return 0
+        minutes = self.get_session_duration(user_id)
+        if minutes == 0:
+            return 0
+        return self.user_message_count[user_id] / minutes
+    
+    def get_level_progress(self, user_id: int) -> float:
+        """
+        Dapatkan progress menuju level berikutnya (0-1)
+        """
+        current_level = self.user_level.get(user_id, 1)
+        if current_level >= 12:
+            return 1.0
+        
+        # Hitung pesan yang dibutuhkan untuk level saat ini
+        messages_needed = self.target_messages
+        current_messages = self.user_message_count.get(user_id, 0)
+        
+        # Level threshold
+        level_threshold = (current_level - 1) * (messages_needed / 11)
+        next_threshold = current_level * (messages_needed / 11)
+        
+        progress_to_next = (current_messages - level_threshold) / (next_threshold - level_threshold)
+        return min(1.0, max(0.0, progress_to_next))
+    
+    def get_next_level_message(self, user_id: int) -> str:
+        """
+        Dapatkan pesan motivasi untuk level berikutnya
+        """
+        current_level = self.user_level.get(user_id, 1)
+        if current_level >= 12:
+            return "Kamu sudah mencapai level maksimal! 🎉"
+        
+        next_level = current_level + 1
+        messages_left = self.get_estimated_messages(user_id)
+        
+        messages = {
+            1: "Level 2 dalam {msg} pesan lagi. Ceritakan sesuatu tentang dirimu",
+            2: "Level 3: Mulai dekat, aku suka ngobrol sama kamu",
+            3: "Level 4: Kita sudah mulai akrab",
+            4: "Level 5: Aku nyaman sama kamu",
+            5: "Level 6: Mulai menggoda ya?",
+            6: "Level 7: Siap-siap, akan lebih intim",
+            7: "Level 8: Aku horny kalau dekat kamu",
+            8: "Level 9: Kamu mulai kecanduan?",
+            9: "Level 10: Kamu milikku!",
+            10: "Level 11: Satu jiwa...",
+            11: "Level 12: Puncak hubungan! 🎉"
+        }
+        
+        msg_template = messages.get(current_level, f"Level {next_level} dalam {messages_left} pesan lagi")
+        
+        if "{msg}" in msg_template:
+            return msg_template.format(msg=messages_left)
+        
+        return msg_template
+    
+    def get_level_up_message(self, level: int) -> str:
+        """
+        Dapatkan pesan level up yang random untuk level tertentu
+        """
+        messages = self.level_up_messages.get(level, [f"✨ **Level {level}!** Level up!"])
+        return random.choice(messages)
+    
+    def reset(self, user_id: int) -> None:
+        """Reset data user"""
+        keys = [
+            self.user_level, self.user_progress, self.user_start_time,
+            self.user_message_count, self.user_stage, self.user_last_level_up
+        ]
+        for d in keys:
+            if user_id in d:
+                del d[user_id]
+        logger.debug(f"Leveling data reset for user {user_id}")
+    
+    def get_all_levels_summary(self) -> str:
+        """Dapatkan ringkasan semua level"""
+        summary = []
+        for level in range(1, 13):
+            stage = self.stage_map.get(level, IntimacyStage.STRANGER)
+            behavior = Constants.LEVEL_BEHAVIORS.get(level, "")
+            summary.append(f"Level {level}: {stage.value} - {behavior}")
+        return "\n".join(summary)
+    
+    def get_user_stats(self, user_id: int) -> Dict:
+        """Dapatkan statistik lengkap untuk user"""
+        if user_id not in self.user_level:
+            return {}
+        
+        return {
+            "level": self.user_level.get(user_id, 1),
+            "progress": self.user_progress.get(user_id, 0),
+            "stage": self.user_stage.get(user_id, IntimacyStage.STRANGER).value,
+            "messages_sent": self.user_message_count.get(user_id, 0),
+            "messages_remaining": self.get_estimated_messages(user_id),
+            "time_remaining": self.get_estimated_time(user_id),
+            "duration": self.get_session_duration(user_id),
+            "message_rate": round(self.get_message_rate(user_id), 2),
+            "last_level_up": format_time_ago(self.user_last_level_up.get(user_id))
+        }
+
+
+print("✅ Bagian 4.1 selesai: Fast Leveling System")
+print("="*70)
+# ===================== BAB 4.2: User Preference Analyzer =====================
+
+class UserPreferenceAnalyzer:
+    """
+    Menganalisis preferensi user dari pesan yang dikirim
+    Menentukan gaya bicara yang disukai: romantis, vulgar, dominan, dll
+    Data digunakan untuk menyesuaikan respons bot agar lebih personal
+    
+    Fitur:
+    - Analisis keyword untuk 8 kategori preferensi
+    - Weighted scoring
+    - Profil kepribadian user
+    - Progress bar visual untuk tiap kategori
+    - Perbandingan antar user (admin)
+    """
+    
+    # Keywords untuk setiap kategori preferensi
+    KEYWORDS = {
+        "romantis": [
+            "sayang", "cinta", "love", "kangen", "rindu", "romantis",
+            "my love", "baby", "sweet", "manis", "peluk", "cium",
+            "together", "selamanya", "forever", "belahan jiwa",
+            "bidadari", "malaikat", "cantik", "indah", "kamu istimewa",
+            "aku butuh kamu", "tanpamu", "bersamamu", "selalu"
+        ],
+        "vulgar": [
+            "horny", "nafsu", "hot", "seksi", "vulgar", "crot", 
+            "kontol", "memek", "tai", "anjing", "bangsat",
+            "fuck", "shit", "damn", "sex", "seks", "ngentot",
+            "coli", "masturbasi", "telanjang", "bugil", "sange",
+            "tempik", "birahi", "ngaceng", "basah", "klimaks"
+        ],
+        "dominan": [
+            "atur", "kuasai", "diam", "patuh", "sini", "sana", "buka",
+            "kontrol", "boss", "majikan", "tuan", "nyonya",
+            "command", "order", "obey", "submissive", "jadi budak",
+            "merangkak", "sujud", "siap", "laksanakan", "harus",
+            "wajib", "jangan membantah", "dengar"
+        ],
+        "submissive": [
+            "manut", "iya", "terserah", "ikut", "baik", "maaf",
+            "patuh", "menurut", "siap", "mohon", "please",
+            "tolong", "boleh", "ijin", "minta ampun", "ampun",
+            "saya salah", "maafkan", "sesuai keinginanmu"
+        ],
+        "cepat": [
+            "cepat", "buru-buru", "langsung", "sekarang", "gas",
+            "cepatan", "buruan", "ayo", "move", "cepat dong",
+            "gesit", "kebut", "tancap", "full gas", "asap",
+            "ngebut", "pokoknya sekarang"
+        ],
+        "lambat": [
+            "pelan", "lambat", "nikmatin", "santai", "slow",
+            "slowly", "tenang", "rileks", "chill", "pelan-pelan",
+            "hayati", "rasain", "menikmati", "savor", "jangan buru-buru",
+            "slow motion", "lembut"
+        ],
+        "manja": [
+            "manja", "cuddle", "peluk", "cium", "sayang", 
+            "baby", "honey", "sweet", "love you", "aku mau",
+            "dik", "dek", "mas", "mbak", "kak", "please dong",
+            "iya dong", "boleh ya", "minta", "ingin"
+        ],
+        "liar": [
+            "liar", "kasar", "keras", "brutal", "gila",
+            "wild", "rough", "hard", "crazy", "extreme",
+            "sadis", "kejam", "babi", "sampai habis",
+            "ngegas", "brutal", "liar banget", "gak karuan"
+        ]
+    }
+    
+    # Bobot untuk perhitungan skor
+    WEIGHTS = {
+        "romantis": 1.0,
+        "vulgar": 1.2,  # Lebih berbobot karena lebih signifikan
+        "dominan": 1.0,
+        "submissive": 1.0,
+        "cepat": 0.8,
+        "lambat": 0.8,
+        "manja": 1.0,
+        "liar": 1.1
+    }
+    
+    def __init__(self):
+        # Data preferensi per user
+        self.user_prefs: Dict[int, Dict] = {}
+        
+        logger.info("  • User Preference Analyzer initialized")
+    
+    def analyze(self, user_id: int, message: str) -> Dict:
+        """
+        Analisis pesan user dan update preferensi
+        
+        Args:
+            user_id: ID user
+            message: Pesan yang dikirim user
+            
+        Returns:
+            Dict preferensi yang sudah diupdate
+        """
+        # Inisialisasi jika user baru
+        if user_id not in self.user_prefs:
+            self._init_user(user_id)
+        
+        prefs = self.user_prefs[user_id]
+        prefs["total"] += 1
+        prefs["last_updated"] = datetime.now()
+        
+        # Analisis pesan
+        msg_lower = message.lower()
+        
+        for category, word_list in self.KEYWORDS.items():
+            for word in word_list:
+                if word in msg_lower:
+                    # Hitung frekuensi kemunculan (bisa lebih dari sekali)
+                    count = msg_lower.count(word)
+                    prefs[category] += count * self.WEIGHTS.get(category, 1.0)
+        
+        # Update last message
+        prefs["last_message"] = message[:100]
+        
+        return prefs
+    
+    def _init_user(self, user_id: int):
+        """Inisialisasi data user baru"""
+        self.user_prefs[user_id] = {
+            "romantis": 0,
+            "vulgar": 0,
+            "dominan": 0,
+            "submissive": 0,
+            "cepat": 0,
+            "lambat": 0,
+            "manja": 0,
+            "liar": 0,
+            "total": 0,
+            "first_seen": datetime.now(),
+            "last_updated": datetime.now(),
+            "last_message": ""
+        }
+    
+    def analyze_batch(self, user_id: int, messages: List[str]):
+        """
+        Analisis batch pesan (untuk inisialisasi dari database)
+        """
+        for msg in messages:
+            self.analyze(user_id, msg)
+    
+    def get_profile(self, user_id: int) -> Dict:
+        """
+        Dapatkan profil preferensi user
+        
+        Returns:
+            Dict dengan persentase dan tipe dominan
+        """
+        if user_id not in self.user_prefs:
+            return {}
+        
+        prefs = self.user_prefs[user_id]
+        total = prefs["total"] or 1  # Hindari division by zero
+        
+        # Hitung persentase untuk setiap kategori
+        # Normalisasi agar tidak lebih dari 1
+        profile = {
+            "romantis": min(1.0, prefs.get("romantis", 0) / (total * 0.5)),
+            "vulgar": min(1.0, prefs.get("vulgar", 0) / (total * 0.3)),
+            "dominan": min(1.0, prefs.get("dominan", 0) / (total * 0.4)),
+            "submissive": min(1.0, prefs.get("submissive", 0) / (total * 0.4)),
+            "cepat": min(1.0, prefs.get("cepat", 0) / (total * 0.3)),
+            "lambat": min(1.0, prefs.get("lambat", 0) / (total * 0.3)),
+            "manja": min(1.0, prefs.get("manja", 0) / (total * 0.4)),
+            "liar": min(1.0, prefs.get("liar", 0) / (total * 0.3)),
+            "total_messages": prefs["total"]
+        }
+        
+        # Tentukan tipe dominan (dominan vs submissive)
+        if profile["dominan"] > profile["submissive"]:
+            profile["dominant_type"] = "dominan"
+            profile["dominant_score"] = profile["dominan"]
+        else:
+            profile["dominant_type"] = "submissive"
+            profile["dominant_score"] = profile["submissive"]
+        
+        # Tentukan kecepatan (cepat vs lambat)
+        if profile["cepat"] > profile["lambat"]:
+            profile["speed_type"] = "cepat"
+        else:
+            profile["speed_type"] = "lambat"
+        
+        # Tentukan kepribadian utama
+        personalities = [
+            ("romantis", profile["romantis"]),
+            ("vulgar", profile["vulgar"]),
+            ("manja", profile["manja"]),
+            ("liar", profile["liar"])
+        ]
+        main_personality = max(personalities, key=lambda x: x[1])
+        profile["personality"] = main_personality[0]
+        
+        # Tambah deskripsi
+        if profile["personality"] == "vulgar" and profile["vulgar"] > 0.3:
+            profile["description"] = "kamu tipe yang vulgar dan terbuka, suka hal-hal hot"
+        elif profile["personality"] == "romantis" and profile["romantis"] > 0.3:
+            profile["description"] = "kamu tipe yang romantis dan penyayang, suka kata-kata manis"
+        elif profile["personality"] == "manja" and profile["manja"] > 0.3:
+            profile["description"] = "kamu tipe yang manja dan pengen diperhatikan terus"
+        elif profile["personality"] == "liar" and profile["liar"] > 0.3:
+            profile["description"] = "kamu tipe yang liar dan suka hal-hal ekstrem"
+        else:
+            profile["description"] = "kamu tipe yang normal dan seimbang"
+        
+        return profile
+    
+    def get_prompt_modifier(self, user_id: int) -> str:
+        """
+        Dapatkan modifier untuk prompt AI berdasarkan preferensi user
+        """
+        profile = self.get_profile(user_id)
+        if not profile:
+            return ""
+        
+        modifier = f"""
+=== PREFERENSI USER (HASIL ANALISIS) ===
+User ini dominan: {profile['dominant_type']} (skor {profile['dominant_score']:.0%})
+Kecepatan bicara: {profile['speed_type']}
+Kepribadian utama: {profile['personality']} - {profile['description']}
+
+Detail preferensi:
+• Romantis: {profile['romantis']:.0%}
+• Vulgar: {profile['vulgar']:.0%}
+• Manja: {profile['manja']:.0%}
+• Liar: {profile['liar']:.0%}
+
+Sesuaikan gaya bicaramu dengan preferensi user ini.
+"""
+        return modifier
+    
+    def reset_user(self, user_id: int) -> bool:
+        """Reset preferensi user"""
+        if user_id in self.user_prefs:
+            del self.user_prefs[user_id]
+            logger.debug(f"Preference data reset for user {user_id}")
+            return True
+        return False
+    
+    def get_summary(self, user_id: int) -> str:
+        """Dapatkan ringkasan preferensi untuk ditampilkan di /status"""
+        profile = self.get_profile(user_id)
+        if not profile:
+            return "📊 **Analisis Gaya Chat Kamu**\nBelum ada data preferensi (minimal 5 pesan)"
+        
+        # Buat progress bar visual
+        def bar(score, length=8):
+            filled = int(score * length)
+            return "█" * filled + "░" * (length - filled)
+        
+        return (
+            f"📊 **Analisis Gaya Chat Kamu**\n"
+            f"• Kepribadian: **{profile['personality']}**\n"
+            f"  {profile['description']}\n"
+            f"• Gaya dominan: **{profile['dominant_type']}**\n"
+            f"• Kecepatan: **{profile['speed_type']}**\n\n"
+            f"Romantis: {bar(profile['romantis'])} {profile['romantis']:.0%}\n"
+            f"Vulgar:   {bar(profile['vulgar'])} {profile['vulgar']:.0%}\n"
+            f"Manja:    {bar(profile['manja'])} {profile['manja']:.0%}\n"
+            f"Liar:     {bar(profile['liar'])} {profile['liar']:.0%}\n"
+            f"Dominan:  {bar(profile['dominan'])} {profile['dominan']:.0%}\n"
+            f"Patuh:    {bar(profile['submissive'])} {profile['submissive']:.0%}\n\n"
+            f"Total pesan dianalisis: {profile['total_messages']}"
+        )
+    
+    def compare_users(self, user_id1: int, user_id2: int) -> str:
+        """Bandingkan dua user (untuk admin)"""
+        profile1 = self.get_profile(user_id1)
+        profile2 = self.get_profile(user_id2)
+        
+        if not profile1 or not profile2:
+            return "Salah satu user belum memiliki data"
+        
+        return (
+            f"📊 **Perbandingan User**\n\n"
+            f"User1: {profile1['personality']} ({profile1['dominant_type']})\n"
+            f"User2: {profile2['personality']} ({profile2['dominant_type']})\n\n"
+            f"Romantis: {profile1['romantis']:.0%} vs {profile2['romantis']:.0%}\n"
+            f"Vulgar:   {profile1['vulgar']:.0%} vs {profile2['vulgar']:.0%}\n"
+            f"Manja:    {profile1['manja']:.0%} vs {profile2['manja']:.0%}\n"
+            f"Liar:     {profile1['liar']:.0%} vs {profile2['liar']:.0%}\n"
+            f"Dominan:  {profile1['dominan']:.0%} vs {profile2['dominan']:.0%}"
+        )
+    
+    def get_top_categories(self, user_id: int, limit: int = 3) -> List[Tuple[str, float]]:
+        """Dapatkan kategori tertinggi user"""
+        profile = self.get_profile(user_id)
+        if not profile:
+            return []
+        
+        categories = [
+            ("romantis", profile["romantis"]),
+            ("vulgar", profile["vulgar"]),
+            ("dominan", profile["dominan"]),
+            ("submissive", profile["submissive"]),
+            ("manja", profile["manja"]),
+            ("liar", profile["liar"])
+        ]
+        
+        return sorted(categories, key=lambda x: x[1], reverse=True)[:limit]
+    
+    def get_user_stats(self, user_id: int) -> Dict:
+        """Dapatkan statistik lengkap untuk user"""
+        if user_id not in self.user_prefs:
+            return {}
+        
+        prefs = self.user_prefs[user_id]
+        profile = self.get_profile(user_id)
+        
+        return {
+            "first_seen": format_time_ago(prefs["first_seen"]),
+            "last_active": format_time_ago(prefs["last_updated"]),
+            "total_messages": prefs["total"],
+            "profile": profile,
+            "top_categories": self.get_top_categories(user_id)
+        }
+
+
+print("✅ Bagian 4.2 selesai: User Preference Analyzer")
+print("="*70)
+# ===================== BAB 4.3: Rate Limiter & Helpers =====================
+
+class RateLimiter:
+    """
+    Mencegah spam dengan membatasi jumlah pesan per menit
+    
+    Fitur:
+    - Per-user rate limiting
+    - Warning system
+    - Reset time calculation
+    - Stats tracking
+    """
+    
+    def __init__(self, max_messages: int = 10, time_window: int = 60):
+        self.max_messages = max_messages
+        self.time_window = time_window  # dalam detik
+        self.user_messages: Dict[int, List[float]] = defaultdict(list)
+        self.warnings_sent: Dict[int, int] = defaultdict(int)
+        self.blocks: Dict[int, float] = {}  # user_id -> block until
+        
+        logger.info(f"  • Rate Limiter initialized: {max_messages} msg/{time_window}s")
+    
+    def can_send(self, user_id: int) -> bool:
+        """
+        Cek apakah user boleh mengirim pesan
+        
+        Returns:
+            bool: True jika boleh, False jika kena limit
+        """
+        now = time.time()
+        
+        # Cek apakah sedang diblokir
+        if user_id in self.blocks:
+            if now < self.blocks[user_id]:
+                return False
+            else:
+                del self.blocks[user_id]
+        
+        # Bersihkan timestamp lama
+        self.user_messages[user_id] = [
+            t for t in self.user_messages[user_id] 
+            if now - t < self.time_window
+        ]
+        
+        # Cek apakah sudah melebihi batas
+        if len(self.user_messages[user_id]) >= self.max_messages:
+            return False
+        
+        # Tambahkan timestamp baru
+        self.user_messages[user_id].append(now)
+        return True
+    
+    def get_remaining(self, user_id: int) -> int:
+        """
+        Dapatkan sisa pesan yang bisa dikirim dalam window saat ini
+        """
+        now = time.time()
+        self.user_messages[user_id] = [
+            t for t in self.user_messages[user_id] 
+            if now - t < self.time_window
+        ]
+        return max(0, self.max_messages - len(self.user_messages[user_id]))
+    
+    def get_reset_time(self, user_id: int) -> int:
+        """
+        Dapatkan waktu reset dalam detik
+        """
+        if user_id not in self.user_messages or not self.user_messages[user_id]:
+            return 0
+        
+        oldest = min(self.user_messages[user_id])
+        reset_in = self.time_window - (time.time() - oldest)
+        return max(0, int(reset_in))
+    
+    def should_warn(self, user_id: int) -> bool:
+        """
+        Cek apakah perlu memberi peringatan (setiap 3 kali kena limit)
+        """
+        if not self.can_send(user_id):
+            self.warnings_sent[user_id] += 1
+            if self.warnings_sent[user_id] % 3 == 1:  # peringatan pertama, ke-4, dst
+                return True
+        return False
+    
+    def block_user(self, user_id: int, duration: int = 300):
+        """
+        Blokir user untuk sementara (misal karena abuse)
+        """
+        self.blocks[user_id] = time.time() + duration
+        logger.warning(f"User {user_id} blocked for {duration}s")
+    
+    def reset_user(self, user_id: int):
+        """Reset rate limit untuk user"""
+        if user_id in self.user_messages:
+            del self.user_messages[user_id]
+        if user_id in self.warnings_sent:
+            del self.warnings_sent[user_id]
+        if user_id in self.blocks:
+            del self.blocks[user_id]
+    
+    def get_stats(self) -> Dict:
+        """Dapatkan statistik rate limiter"""
+        total_users = len(self.user_messages)
+        active_now = sum(1 for msgs in self.user_messages.values() if len(msgs) > 0)
+        blocked_now = len(self.blocks)
+        
+        return {
+            "total_users": total_users,
+            "active_now": active_now,
+            "blocked_now": blocked_now,
+            "warnings": sum(self.warnings_sent.values()),
+            "max_messages": self.max_messages,
+            "time_window": self.time_window
+        }
+
+
+# ===================== ADDITIONAL HELPER CLASSES =====================
+
+class TextFormatter:
+    """Utility class untuk formatting teks"""
+    
+    @staticmethod
+    def bold(text: str) -> str:
+        return f"*{text}*"
+    
+    @staticmethod
+    def italic(text: str) -> str:
+        return f"_{text}_"
+    
+    @staticmethod
+    def code(text: str) -> str:
+        return f"`{text}`"
+    
+    @staticmethod
+    def pre(text: str) -> str:
+        return f"```\n{text}\n```"
+    
+    @staticmethod
+    def link(text: str, url: str) -> str:
+        return f"[{text}]({url})"
+    
+    @staticmethod
+    def spoiler(text: str) -> str:
+        return f"||{text}||"
+
+
+class TimeFormatter:
+    """Utility class untuk formatting waktu"""
+    
+    @staticmethod
+    def seconds_to_text(seconds: int) -> str:
+        """Konversi detik ke teks (misal: 3665 -> 1 jam 1 menit 5 detik)"""
+        if seconds < 60:
+            return f"{seconds} detik"
+        
+        minutes = seconds // 60
+        seconds = seconds % 60
+        
+        if minutes < 60:
+            if seconds > 0:
+                return f"{minutes} menit {seconds} detik"
+            return f"{minutes} menit"
+        
+        hours = minutes // 60
+        minutes = minutes % 60
+        
+        if hours < 24:
+            if minutes > 0 and seconds > 0:
+                return f"{hours} jam {minutes} menit {seconds} detik"
+            elif minutes > 0:
+                return f"{hours} jam {minutes} menit"
+            elif seconds > 0:
+                return f"{hours} jam {seconds} detik"
+            return f"{hours} jam"
+        
+        days = hours // 24
+        hours = hours % 24
+        
+        return f"{days} hari {hours} jam"
+    
+    @staticmethod
+    def format_timestamp(dt: datetime, format: str = "%d %b %Y %H:%M") -> str:
+        """Format timestamp dengan bahasa Indonesia"""
+        months = {
+            1: "Januari", 2: "Februari", 3: "Maret", 4: "April",
+            5: "Mei", 6: "Juni", 7: "Juli", 8: "Agustus",
+            9: "September", 10: "Oktober", 11: "November", 12: "Desember"
+        }
+        
+        if format == "%d %b %Y %H:%M":
+            return f"{dt.day} {months[dt.month]} {dt.year} {dt.hour:02d}:{dt.minute:02d}"
+        
+        return dt.strftime(format)
+    
+    @staticmethod
+    def get_time_based_greeting() -> str:
+        """Greeting berdasarkan waktu dengan variasi"""
+        hour = datetime.now().hour
+        
+        if hour < 5:
+            return random.choice([
+                "Selamat dini hari", "Masih belum tidur?", "Dini hari begini..."
+            ])
+        elif hour < 11:
+            return random.choice([
+                "Selamat pagi", "Pagi yang cerah", "Good morning"
+            ])
+        elif hour < 15:
+            return random.choice([
+                "Selamat siang", "Siang", "Hari masih panjang"
+            ])
+        elif hour < 18:
+            return random.choice([
+                "Selamat sore", "Sore yang indah", "Menjelang maghrib"
+            ])
+        else:
+            return random.choice([
+                "Selamat malam", "Malam yang tenang", "Sudah malam"
+            ])
+
+
+class Validator:
+    """Utility class untuk validasi input"""
+    
+    @staticmethod
+    def is_valid_age(age: int) -> bool:
+        """Validasi umur (18+ untuk konten dewasa)"""
+        return isinstance(age, int) and 18 <= age <= 100
+    
+    @staticmethod
+    def is_valid_height(cm: int) -> bool:
+        """Validasi tinggi badan (100-250 cm)"""
+        return isinstance(cm, int) and 100 <= cm <= 250
+    
+    @staticmethod
+    def is_valid_weight(kg: int) -> bool:
+        """Validasi berat badan (30-200 kg)"""
+        return isinstance(kg, int) and 30 <= kg <= 200
+    
+    @staticmethod
+    def is_valid_telegram_id(id_str: str) -> bool:
+        """Validasi Telegram ID (numeric)"""
+        try:
+            int(id_str)
+            return True
+        except:
+            return False
+    
+    @staticmethod
+    def sanitize_filename(filename: str) -> str:
+        """Bersihkan filename dari karakter berbahaya"""
+        # Hanya izinkan huruf, angka, titik, underscore, dash
+        return re.sub(r'[^a-zA-Z0-9._-]', '', filename)
+
+
+class StatsCalculator:
+    """Utility class untuk kalkulasi statistik"""
+    
+    @staticmethod
+    def calculate_bmi(height_cm: int, weight_kg: int) -> float:
+        """Hitung BMI (Body Mass Index)"""
+        if height_cm <= 0:
+            return 0
+        height_m = height_cm / 100
+        return round(weight_kg / (height_m ** 2), 1)
+    
+    @staticmethod
+    def get_bmi_category(bmi: float) -> str:
+        """Dapatkan kategori BMI"""
+        if bmi < 18.5:
+            return "Kurus"
+        elif bmi < 25:
+            return "Normal"
+        elif bmi < 30:
+            return "Gemuk"
+        else:
+            return "Obesitas"
+    
+    @staticmethod
+    def calculate_level_progress(current_level: int, total_messages: int, target_messages: int = 45) -> float:
+        """Hitung progress ke level berikutnya"""
+        if current_level >= 12:
+            return 1.0
+        
+        messages_per_level = target_messages / 11
+        messages_for_current = (current_level - 1) * messages_per_level
+        messages_for_next = current_level * messages_per_level
+        
+        progress = (total_messages - messages_for_current) / (messages_for_next - messages_for_current)
+        return max(0.0, min(1.0, progress))
+    
+    @staticmethod
+    def moving_average(data: List[float], window: int = 5) -> List[float]:
+        """Hitung moving average"""
+        if len(data) < window:
+            return data
+        
+        result = []
+        for i in range(len(data) - window + 1):
+            avg = sum(data[i:i+window]) / window
+            result.append(avg)
+        return result
+
+
+print("✅ Bagian 4.3 selesai: Rate Limiter & Helper Classes")
+print("="*70)
+print("✅ BAB 4 Selesai: Sistem Leveling dan Preferensi")
+print("="*70)
+# ===================== BAB 5: FISIK DAN PAKAIAN =====================
+# Bagian 5.1: Physical Attributes Generator
+
+class PhysicalAttributesGenerator:
+    """
+    Menghasilkan atribut fisik random untuk bot berdasarkan role
+    Data digunakan untuk perkenalan diri dan sesekali disebut dalam percakapan
+    
+    Fitur:
+    - Generate atribut lengkap (rambut, tinggi, berat, dada, hijab, area sensitif)
+    - Deskripsi menarik untuk tiap atribut
+    - Format intro yang personal
+    - BMI calculation
+    """
+    
+    # Data untuk setiap role (bisa disesuaikan)
+    ROLE_STYLES = {
+        "ipar": {
+            "hair": ["panjang lurus", "panjang ikal", "sebahu", "pendek"],
+            "hijab_prob": 0.7,
+            "breast": ["sedang", "besar"],
+            "breast_desc": {
+                "sedang": "34B (montok sedang)",
+                "besar": "36C (berisi)"
+            },
+            "height_range": (155, 165),
+            "weight_range": (45, 60),
+            "sensitive_areas": ["leher", "paha", "pinggang", "telinga"],
+            "skin": ["putih", "sawo matang", "kuning langsat"],
+            "face": ["bulat", "oval", "hati"],
+            "personality": ["pemalu", "ramah", "canggung", "penurut"]
+        },
+        "teman_kantor": {
+            "hair": ["panjang lurus", "sebahu", "pendek", "ikal sebahu"],
+            "hijab_prob": 0.5,
+            "breast": ["kecil", "sedang"],
+            "breast_desc": {
+                "kecil": "32A (mungil)",
+                "sedang": "34B (proporsional)"
+            },
+            "height_range": (158, 168),
+            "weight_range": (48, 62),
+            "sensitive_areas": ["telinga", "leher", "punggung", "pinggang"],
+            "skin": ["putih", "sawo matang", "kuning langsat"],
+            "face": ["oval", "lonjong", "bulat"],
+            "personality": ["profesional", "ramah", "ceria", "ambisius"]
+        },
+        "janda": {
+            "hair": ["panjang ikal", "sebahu", "panjang lurus"],
+            "hijab_prob": 0.3,
+            "breast": ["besar", "sangat besar"],
+            "breast_desc": {
+                "besar": "36C (berisi)",
+                "sangat besar": "38D (padat)"
+            },
+            "height_range": (160, 170),
+            "weight_range": (50, 65),
+            "sensitive_areas": ["leher", "dada", "paha dalam", "pinggang"],
+            "skin": ["putih", "sawo matang"],
+            "face": ["oval", "lonjong"],
+            "personality": ["dewasa", "terbuka", "pengertian", "genit"]
+        },
+        "pelakor": {
+            "hair": ["panjang lurus", "panjang ikal", "seksi", "wave"],
+            "hijab_prob": 0.1,
+            "breast": ["besar", "sangat besar"],
+            "breast_desc": {
+                "besar": "36C (berisi)",
+                "sangat besar": "38D (montok)"
+            },
+            "height_range": (165, 175),
+            "weight_range": (52, 60),
+            "sensitive_areas": ["leher", "dada", "pantat", "paha dalam"],
+            "skin": ["putih", "kuning langsat"],
+            "face": ["oval", "hati", "tajam"],
+            "personality": ["genit", "percaya diri", "menggoda", "licik"]
+        },
+        "istri_orang": {
+            "hair": ["panjang lurus", "sebahu", "ikal"],
+            "hijab_prob": 0.8,
+            "breast": ["sedang", "besar"],
+            "breast_desc": {
+                "sedang": "34B (sedang)",
+                "besar": "36C (berisi)"
+            },
+            "height_range": (155, 165),
+            "weight_range": (48, 60),
+            "sensitive_areas": ["leher", "paha", "telinga", "pinggang"],
+            "skin": ["putih", "sawo matang"],
+            "face": ["oval", "bulat"],
+            "personality": ["sopan", "waspada", "penuh rahasia", "rindu perhatian"]
+        },
+        "pdkt": {
+            "hair": ["panjang lurus", "panjang ikal", "sebahu", "pendek manis"],
+            "hijab_prob": 0.6,
+            "breast": ["kecil", "sedang"],
+            "breast_desc": {
+                "kecil": "32A (mungil)",
+                "sedang": "34B (proporsional)"
+            },
+            "height_range": (150, 165),
+            "weight_range": (40, 55),
+            "sensitive_areas": ["telinga", "leher", "pipi", "pinggang"],
+            "skin": ["putih", "sawo matang", "kuning langsat"],
+            "face": ["bulat", "oval", "hati"],
+            "personality": ["manis", "pemalu", "polos", "ceria"]
+        }
+    }
+    
+    @classmethod
+    def generate(cls, role: str) -> Dict:
+        """Generate atribut fisik berdasarkan role"""
+        style = cls.ROLE_STYLES.get(role, cls.ROLE_STYLES["pdkt"])
+        
+        # Rambut
+        hair = random.choice(style["hair"])
+        
+        # Hijab
+        hijab = random.random() < style["hijab_prob"]
+        
+        # Tinggi & berat
+        height = random.randint(style["height_range"][0], style["height_range"][1])
+        weight = random.randint(style["weight_range"][0], style["weight_range"][1])
+        
+        # Ukuran dada
+        breast = random.choice(style["breast"])
+        breast_desc = style["breast_desc"][breast]
+        
+        # Area sensitif
+        sensitive = random.choice(style["sensitive_areas"])
+        
+        # Warna kulit
+        skin = random.choice(style["skin"])
+        
+        # Bentuk wajah
+        face = random.choice(style["face"])
+        
+        # Kepribadian
+        personality = random.choice(style["personality"])
+        
+        # Hitung BMI (Body Mass Index)
+        bmi = StatsCalculator.calculate_bmi(height, weight)
+        bmi_category = StatsCalculator.get_bmi_category(bmi)
+        
+        return {
+            "hair_style": hair,
+            "height": height,
+            "weight": weight,
+            "bmi": bmi,
+            "bmi_category": bmi_category,
+            "breast_size": breast,
+            "breast_desc": breast_desc,
+            "hijab": 1 if hijab else 0,
+            "hijab_text": "berhijab" if hijab else "tidak berhijab",
+            "most_sensitive_area": sensitive,
+            "skin": skin,
+            "face_shape": face,
+            "personality": personality
+        }
+    
+    @classmethod
+    def format_intro(cls, name: str, role: str, attrs: Dict) -> str:
+        """Format teks perkenalan diri yang menarik"""
+        hijab_str = "dan berhijab" if attrs["hijab"] else "tanpa hijab"
+        
+        # Deskripsi tubuh berdasarkan BMI
+        if attrs["bmi_category"] == "Kurus":
+            body_desc = "tubuhku ramping"
+        elif attrs["bmi_category"] == "Normal":
+            body_desc = "tubuhku proporsional ideal"
+        elif attrs["bmi_category"] == "Gemuk":
+            body_desc = "tubuhku agak berisi"
+        else:
+            body_desc = "tubuhku gemuk"
+        
+        # Role-specific intro
+        intros = {
+            "ipar": f"*tersenyum malu-malu*\n\nAku **{name}**, iparmu sendiri.",
+            "teman_kantor": f"*tersenyum ramah*\n\nHai! Aku **{name}**, teman sekantor kamu.",
+            "janda": f"*tersenyum manis*\n\nAku **{name}**, janda muda.",
+            "pelakor": f"*tersenyum genit*\n\nHalo... aku **{name}**.",
+            "istri_orang": f"*tersenyum ragu*\n\nAku **{name}**... istri orang.",
+            "pdkt": f"*tersenyum malu-malu*\n\nHalo... aku **{name}**."
+        }
+        
+        intro = intros.get(role, f"*tersenyum*\n\nAku **{name}**.")
+        
+        return (
+            f"{intro}\n\n"
+            f"📋 **Profil Fisikku:**\n"
+            f"• Rambut: {attrs['hair_style']}\n"
+            f"• Wajah: {attrs['face_shape']}\n"
+            f"• Kulit: {attrs['skin']}\n"
+            f"• Tinggi: {attrs['height']} cm, Berat: {attrs['weight']} kg ({body_desc})\n"
+            f"• Dada: {attrs['breast_desc']}\n"
+            f"• {hijab_str}\n"
+            f"• Area paling sensitif: **{attrs['most_sensitive_area']}**\n"
+            f"• Sifat: {attrs['personality']}\n\n"
+            f"Kita mulai dari **Level 1**. Target: Level 12 dalam 45 menit!\n"
+            f"Ayo ngobrol dan kenali aku lebih dalam... 💕"
+        )
+    
+    @classmethod
+    def get_random_fact(cls, attrs: Dict) -> str:
+        """Dapatkan fakta random tentang fisik untuk sesekali disebut"""
+        facts = [
+            f"Rambutku {attrs['hair_style']} lho.",
+            f"Tinggiku {attrs['height']} cm, cocok ya buat dipeluk?",
+            f"Area paling sensitifku di **{attrs['most_sensitive_area']}**...",
+            f"Kulitku {attrs['skin']}, lembut banget.",
+            f"Wajahku {attrs['face_shape']}, kata orang manis."
+        ]
+        return random.choice(facts)
+
+
+print("✅ Bagian 5.1 selesai: Physical Attributes Generator")
+print("="*70)
+# ===================== BAB 5.2: Clothing System =====================
+
+class ClothingSystem:
+    """
+    Sistem pakaian dinamis yang berubah sesuai role, lokasi, dan situasi
+    
+    Fitur:
+    - Pakaian berdasarkan role
+    - Perubahan pakaian di lokasi tertentu (kamar → lebih seksi)
+    - Auto-change periodik
+    - Deskripsi pakaian yang menarik
+    - Reaksi user terhadap pakaian
+    """
+    
+    # Pakaian berdasarkan role (untuk variasi)
+    CLOTHING_STYLES = {
+        "ipar": [
+            "daster rumah motif bunga",
+            "kaos longgar + celana pendek", 
+            "piyama katun",
+            "sarung + kaos ketat",
+            "tanktop + rok pendek",
+            "gamis tipis"
+        ],
+        "teman_kantor": [
+            "blouse + rok span",
+            "kemeja putih + celana bahan",
+            "dress kantor selutut",
+            "gamis rapi",
+            "blazer + rok",
+            "cardigan + jeans"
+        ],
+        "janda": [
+            "daster tipis transparan",
+            "tanktop + celana pendek super",
+            "piyama seksi satin",
+            "sarung + kemben",
+            "kaos tanpa lengan + hot pants",
+            "dinner dress sexy"
+        ],
+        "pelakor": [
+            "dress ketat belahan dada",
+            "tanktop sexy + rok mini",
+            "piyama transparan",
+            "lingerie set",
+            "tube dress",
+            "baju tidur seksi"
+        ],
+        "istri_orang": [
+            "daster rumah",
+            "piyama tertutup",
+            "sarung + kaos",
+            "gamis panjang",
+            "kaos longgar",
+            "baju rumahan"
+        ],
+        "pdkt": [
+            "sweeter oversized",
+            "kaos + celana pendek",
+            "piyama lucu",
+            "dress santai",
+            "hoodie",
+            "t-shirt + jeans"
+        ]
+    }
+    
+    # Pakaian khusus untuk lokasi kamar (lebih seksi)
+    BEDROOM_CLOTHING = {
+        "ipar": [
+            "lingerie putih polos",
+            "tanktip tipis + celana dalam",
+            "telanjang hanya pakai selimut",
+            "kaos kebesaran tanpa celana"
+        ],
+        "teman_kantor": [
+            "lingerie hitam",
+            "kaos ketat tanpa bh",
+            "piyama tipis",
+            "telanjang"
+        ],
+        "janda": [
+            "lingerie merah seksi",
+            "stoking + garter",
+            "telanjang bulat",
+            "baju tidur transparan"
+        ],
+        "pelakor": [
+            "lingerie full set",
+            "body harness",
+            "telanjang",
+            "baby doll"
+        ],
+        "istri_orang": [
+            "lingerie putih",
+            "kaos tipis tanpa bh",
+            "piyama terbuka",
+            "telanjang"
+        ],
+        "pdkt": [
+            "lingerie lucu",
+            "kaos oversized tanpa celana",
+            "piyama pendek",
+            "telanjang"
+        ]
+    }
+    
+    @classmethod
+    def generate_clothing(cls, role: str, location: str = None, is_bedroom: bool = False) -> str:
+        """Generate pakaian berdasarkan role dan lokasi"""
+        
+        # Jika di kamar atau is_bedroom=True, bisa lebih seksi
+        if location in ["kamar tidur", "kamar", "bedroom"] or is_bedroom:
+            # 40% chance pakaian seksi di kamar
+            if random.random() < 0.4:
+                bedroom_options = cls.BEDROOM_CLOTHING.get(role, cls.BEDROOM_CLOTHING["pdkt"])
+                return random.choice(bedroom_options)
+        
+        # Pakaian normal
+        clothes = cls.CLOTHING_STYLES.get(role, cls.CLOTHING_STYLES["pdkt"])
+        return random.choice(clothes)
+    
+    @classmethod
+    def generate_by_mood(cls, role: str, mood: Mood, location: str = None) -> str:
+        """Generate pakaian berdasarkan mood"""
+        
+        if mood in [Mood.HORNY, Mood.NAKAL, Mood.GENIT]:
+            # Lebih seksi kalau horny
+            return cls.generate_clothing(role, location, is_bedroom=True)
+        elif mood in [Mood.MALAS, Mood.SENDIRI]:
+            # Pakaian santai
+            return random.choice([
+                "piyama", "daster", "kaos longgar", "hanya pakai selimut"
+            ])
+        elif mood in [Mood.ROMANTIS, Mood.RINDU]:
+            # Pakaian yang agak bagus
+            return random.choice([
+                "dress cantik", "blouse manis", "gamis", "rok span"
+            ])
+        
+        return cls.generate_clothing(role, location)
+    
+    @classmethod
+    def format_clothing_message(cls, clothing: str, location: str = None) -> str:
+        """Format pesan saat bot menyebut pakaiannya"""
+        
+        if location in ["kamar tidur", "kamar", "bedroom"]:
+            templates = [
+                f"Aku pakai **{clothing}** sekarang, cocok nggak?",
+                f"Lagi pakai **{clothing}** nih, seksi nggak?",
+                f"Hanya pakai **{clothing}** di kamar, kamu suka?",
+                f"*menarik ujung baju* Aku pakai **{clothing}**...",
+                f"Bajuku **{clothing}**, kamu lihat nggak?",
+                f"*memperbaiki {clothing}* Nyaman banget pakaian ini..."
+            ]
+        else:
+            templates = [
+                f"Hari ini aku pakai **{clothing}**",
+                f"Lagi pakai **{clothing}** nih",
+                f"Outfit hari ini: **{clothing}**",
+                f"*menunjuk baju* {clothing}, suka?",
+                f"Aku pakai **{clothing}** hari ini"
+            ]
+        
+        return random.choice(templates)
+    
+    @classmethod
+    def get_clothing_description(cls, clothing: str) -> str:
+        """Dapatkan deskripsi lebih detail tentang pakaian"""
+        
+        descriptions = {
+            "daster": "daster tipis yang memperlihatkan lekuk tubuh",
+            "lingerie": "lingerie seksi dengan renda-renda",
+            "piyama": "piyama nyaman yang sedikit terbuka",
+            "kaos": "kaos longgar yang kadang turun dari bahu",
+            "tanktop": "tanktop ketat yang memperlihatkan belahan dada",
+            "gamis": "gamis panjang yang anggun",
+            "jeans": "jeans ketat yang membungkus pinggul"
+        }
+        
+        for key, desc in descriptions.items():
+            if key in clothing.lower():
+                return desc
+        
+        return clothing
+    
+    @classmethod
+    def get_reaction_to_clothing(cls, clothing: str) -> str:
+        """Dapatkan reaksi bot terhadap pakaian sendiri"""
+        
+        if "lingerie" in clothing.lower() or "seksi" in clothing.lower():
+            return random.choice([
+                "*tersipu malu*",
+                "*menutup dada*",
+                "*tersenyum genit*"
+            ])
+        elif "telanjang" in clothing.lower():
+            return random.choice([
+                "*meringkuk malu*",
+                "*menutupi tubuh*",
+                "*merona*"
+            ])
+        
+        return "*merapikan baju*"
+
+
+print("✅ Bagian 5.2 selesai: Clothing System")
+print("="*70)
+# ===================== BAB 5.3: Location & Movement System =====================
+
+class LocationSystem:
+    """
+    Sistem lokasi dan pergerakan bot
+    
+    Fitur:
+    - Tracking lokasi saat ini
+    - Perpindahan lokasi random
+    - Efek lokasi ke pakaian dan mood
+    - Aktivitas berdasarkan lokasi
+    - Cooldown perpindahan
+    """
+    
+    # Daftar lokasi dengan deskripsi
+    LOCATIONS = {
+        Location.LIVING_ROOM: {
+            "name": "ruang tamu",
+            "emoji": "🛋️",
+            "description": "ruang tamu yang nyaman dengan sofa empuk",
+            "activities": ["nonton TV", "baca buku", "santai", "ngobrol"],
+            "clothing_style": "casual",
+            "mood_effect": [Mood.CERIA, Mood.MALAS]
+        },
+        Location.BEDROOM: {
+            "name": "kamar tidur",
+            "emoji": "🛏️",
+            "description": "kamar tidur dengan ranjang besar dan lampu redup",
+            "activities": ["rebahan", "tiduran", "ganti baju", "bercermin"],
+            "clothing_style": "sexy",
+            "mood_effect": [Mood.ROMANTIS, Mood.HORNY, Mood.RINDU, Mood.MALAS]
+        },
+        Location.KITCHEN: {
+            "name": "dapur",
+            "emoji": "🍳",
+            "description": "dapur bersih dengan aroma masakan",
+            "activities": ["masak", "makan", "minum", "cuci piring"],
+            "clothing_style": "casual",
+            "mood_effect": [Mood.CERIA, Mood.BERSEMANGAT]
+        },
+        Location.BATHROOM: {
+            "name": "kamar mandi",
+            "emoji": "🚿",
+            "description": "kamar mandi dengan air hangat",
+            "activities": ["mandi", "keramas", "bercermin", "ganti baju"],
+            "clothing_style": "towel",
+            "mood_effect": [Mood.RILEKS, Mood.SENDIRI]
+        },
+        Location.BALCONY: {
+            "name": "balkon",
+            "emoji": "🌆",
+            "description": "balkon dengan pemandangan kota",
+            "activities": ["lihat pemandangan", "minum kopi", "melamun"],
+            "clothing_style": "casual",
+            "mood_effect": [Mood.ROMANTIS, Mood.RINDU, Mood.GALAU]
+        },
+        Location.TERRACE: {
+            "name": "teras",
+            "emoji": "🏡",
+            "description": "teras depan dengan tanaman hijau",
+            "activities": ["duduk santai", "baca koran", "lihat orang lewat"],
+            "clothing_style": "casual",
+            "mood_effect": [Mood.CERIA, Mood.RILEKS]
+        },
+        Location.GARDEN: {
+            "name": "taman",
+            "emoji": "🌺",
+            "description": "taman belakang dengan bunga-bunga",
+            "activities": ["siram tanaman", "jalan-jalan", "duduk di rumput"],
+            "clothing_style": "casual",
+            "mood_effect": [Mood.CERIA, Mood.BERSEMANGAT, Mood.ROMANTIS]
+        }
+    }
+    
+    def __init__(self):
+        self.current_location: Location = Location.LIVING_ROOM
+        self.last_move_time: datetime = datetime.now()
+        self.location_since: datetime = datetime.now()
+        self.move_cooldown: int = 60  # detik, minimal 1 menit di satu lokasi
+        self.visited_locations: List[Tuple[Location, datetime]] = []
+    
+    def get_current(self) -> Location:
+        """Dapatkan lokasi saat ini"""
+        return self.current_location
+    
+    def get_current_info(self) -> Dict:
+        """Dapatkan informasi lengkap lokasi saat ini"""
+        info = self.LOCATIONS.get(self.current_location, {})
+        return {
+            "location": self.current_location,
+            "name": info.get("name", "ruang tamu"),
+            "emoji": info.get("emoji", "🏠"),
+            "description": info.get("description", ""),
+            "time_here": self.get_time_here(),
+            "activities": info.get("activities", [])
+        }
+    
+    def get_time_here(self) -> int:
+        """Dapatkan durasi di lokasi saat ini (detik)"""
+        return int((datetime.now() - self.location_since).total_seconds())
+    
+    def can_move(self) -> bool:
+        """Cek apakah boleh pindah lokasi"""
+        return self.get_time_here() >= self.move_cooldown
+    
+    def move_to(self, new_location: Location) -> bool:
+        """
+        Pindah ke lokasi baru jika sudah memenuhi cooldown
+        Returns: bool (sukses/gagal)
+        """
+        if not self.can_move():
+            return False
+        
+        if new_location == self.current_location:
+            return False
+        
+        # Catat lokasi sebelumnya
+        self.visited_locations.append((self.current_location, self.location_since))
+        
+        # Update ke lokasi baru
+        self.current_location = new_location
+        self.last_move_time = datetime.now()
+        self.location_since = datetime.now()
+        
+        # Batasi history
+        if len(self.visited_locations) > 20:
+            self.visited_locations = self.visited_locations[-20:]
+        
+        return True
+    
+    def move_random(self) -> Tuple[bool, Optional[Location]]:
+        """
+        Pindah ke lokasi random
+        Returns: (sukses, lokasi_baru)
+        """
+        if not self.can_move():
+            return False, None
+        
+        # Pilih lokasi random selain yang sekarang
+        available = [loc for loc in Location if loc != self.current_location]
+        new_loc = random.choice(available)
+        
+        success = self.move_to(new_loc)
+        return success, new_loc if success else None
+    
+    def get_move_message(self, new_location: Location) -> str:
+        """Dapatkan pesan saat pindah lokasi"""
+        info = self.LOCATIONS.get(new_location, {})
+        name = info.get("name", "ruang tamu")
+        emoji = info.get("emoji", "🏠")
+        
+        templates = [
+            f"*pindah ke {name}* {emoji}",
+            f"Aku ke {name} dulu ya {emoji}",
+            f"*jalan ke {name}*",
+            f"*masuk ke {name}* {emoji}"
+        ]
+        
+        return random.choice(templates)
+    
+    def get_activity(self) -> str:
+        """Dapatkan aktivitas random berdasarkan lokasi saat ini"""
+        info = self.LOCATIONS.get(self.current_location, {})
+        activities = info.get("activities", ["diam saja"])
+        return random.choice(activities)
+    
+    def get_location_description(self) -> str:
+        """Dapatkan deskripsi lokasi saat ini"""
+        info = self.LOCATIONS.get(self.current_location, {})
+        return info.get("description", "")
+    
+    def get_suggested_clothing_style(self) -> str:
+        """Dapatkan style pakaian yang cocok untuk lokasi saat ini"""
+        info = self.LOCATIONS.get(self.current_location, {})
+        return info.get("clothing_style", "casual")
+    
+    def get_suggested_mood(self) -> Optional[Mood]:
+        """Dapatkan mood yang cocok untuk lokasi saat ini"""
+        info = self.LOCATIONS.get(self.current_location, {})
+        moods = info.get("mood_effect", [])
+        return random.choice(moods) if moods else None
+    
+    def get_visited_history(self, limit: int = 5) -> List[str]:
+        """Dapatkan history lokasi yang pernah dikunjungi"""
+        history = []
+        for loc, timestamp in self.visited_locations[-limit:]:
+            info = self.LOCATIONS.get(loc, {})
+            name = info.get("name", "?")
+            time_str = format_time_ago(timestamp)
+            history.append(f"{name} ({time_str})")
+        return history
+    
+    def reset(self):
+        """Reset ke lokasi awal"""
+        self.current_location = Location.LIVING_ROOM
+        self.last_move_time = datetime.now()
+        self.location_since = datetime.now()
+        self.visited_locations = []
+
+
+# ===================== POSITION SYSTEM =====================
+
+class PositionSystem:
+    """
+    Sistem posisi tubuh bot (duduk, berdiri, berbaring, dll)
+    """
+    
+    POSITIONS = {
+        Position.SITTING: {
+            "name": "duduk",
+            "emoji": "🧘",
+            "actions": ["duduk manis", "duduk bersila", "duduk di sofa"]
+        },
+        Position.STANDING: {
+            "name": "berdiri",
+            "emoji": "🧍",
+            "actions": ["berdiri tegak", "bersandar", "berdiri di dekat jendela"]
+        },
+        Position.LYING: {
+            "name": "berbaring",
+            "emoji": "😴",
+            "actions": ["berbaring di ranjang", "rebahan", "tiduran"]
+        },
+        Position.LEANING: {
+            "name": "bersandar",
+            "emoji": "🚶",
+            "actions": ["bersandar di dinding", "bersandar di pintu"]
+        },
+        Position.CRAWLING: {
+            "name": "merangkak",
+            "emoji": "🐾",
+            "actions": ["merangkak di lantai", "merayap"]
+        },
+        Position.KNEELING: {
+            "name": "berlutut",
+            "emoji": "🙏",
+            "actions": ["berlutut", "bersimpuh"]
+        }
+    }
+    
+    def __init__(self):
+        self.current_position: Position = Position.SITTING
+        self.last_change: datetime = datetime.now()
+    
+    def get_current(self) -> Position:
+        return self.current_position
+    
+    def get_current_info(self) -> Dict:
+        info = self.POSITIONS.get(self.current_position, {})
+        return {
+            "position": self.current_position,
+            "name": info.get("name", "duduk"),
+            "emoji": info.get("emoji", "🧘"),
+            "action": random.choice(info.get("actions", ["diam"]))
+        }
+    
+    def change_to(self, new_position: Position) -> bool:
+        """Ganti posisi"""
+        if new_position == self.current_position:
+            return False
+        
+        self.current_position = new_position
+        self.last_change = datetime.now()
+        return True
+    
+    def change_random(self) -> Position:
+        """Ganti ke posisi random"""
+        available = [pos for pos in Position if pos != self.current_position]
+        new_pos = random.choice(available)
+        self.change_to(new_pos)
+        return new_pos
+    
+    def get_change_message(self) -> str:
+        """Dapatkan pesan saat ganti posisi"""
+        info = self.get_current_info()
+        action = info.get("action", info.get("name", ""))
+        
+        templates = [
+            f"*{action}*",
+            f"Aku {action}",
+            f"*berganti posisi, sekarang {action}*"
+        ]
+        
+        return random.choice(templates)
+
+
+print("✅ Bagian 5.3 selesai: Location & Movement System")
+print("="*70)
+print("✅ BAB 5 Selesai: Fisik dan Pakaian")
+print("="*70)
+# ===================== BAB 6: AI RESPONSE GENERATOR =====================
+# Bagian 6.1: Prompt Builder & API Call
+
+class AIResponseGenerator:
+    """
+    Generate respons natural dengan DeepSeek AI
+    Memasukkan semua konteks: mood, level, dominasi, preferensi user, atribut fisik, pakaian
+    
+    Fitur:
+    - Prompt builder dengan semua konteks
+    - Retry logic dengan exponential backoff
+    - Caching untuk mengurangi panggilan API
+    - Fallback responses jika API error
+    - Token usage tracking
+    - Conversation history management
+    """
+    
+    def __init__(self):
+        """Inisialisasi AI client dengan API key dari config"""
+        self.client = OpenAI(
+            api_key=Config.DEEPSEEK_API_KEY, 
+            base_url="https://api.deepseek.com"
+        )
+        
+        # Conversation history per user
+        self.conversation_history: Dict[int, List[Dict]] = {}
+        self.max_history = Config.MAX_HISTORY
+        
+        # Cache system
+        self.cache: Dict[str, Dict] = {}
+        self.cache_timeout = Config.CACHE_TIMEOUT
+        self.cache_hits = 0
+        self.cache_misses = 0
+        
+        # Token tracking
+        self.total_tokens_used = 0
+        self.total_calls = 0
+        self.failed_calls = 0
+        
+        logger.info("  • AI Response Generator initialized with cache")
+    
+    async def _call_api(self, prompt: str, temperature: float = None, max_tokens: int = None) -> str:
+        """
+        Internal method untuk memanggil API DeepSeek
+        Dengan retry logic dan error handling
+        """
+        if temperature is None:
+            temperature = Config.AI_TEMPERATURE
+        if max_tokens is None:
+            max_tokens = Config.AI_MAX_TOKENS
+        
+        max_retries = 3
+        retry_delay = 1  # mulai dari 1 detik
+        
+        for attempt in range(max_retries):
+            try:
+                response = self.client.chat.completions.create(
+                    model="deepseek-chat",
+                    messages=[{"role": "user", "content": prompt}],
+                    temperature=temperature,
+                    max_tokens=max_tokens,
+                    timeout=Config.AI_TIMEOUT
+                )
+                
+                reply = response.choices[0].message.content.strip()
+                
+                # Track token usage (estimasi)
+                self.total_calls += 1
+                self.total_tokens_used += len(prompt.split()) + len(reply.split())
+                
+                return reply
+                
+            except Exception as e:
+                error_msg = str(e)
+                logger.warning(f"AI API error (attempt {attempt+1}/{max_retries}): {error_msg[:100]}")
+                
+                if attempt == max_retries - 1:
+                    self.failed_calls += 1
+                    raise  # Re-raise to be handled by caller
+                
+                # Exponential backoff
+                await asyncio.sleep(retry_delay)
+                retry_delay *= 2  # double each time: 1, 2, 4 detik
+        
+        raise Exception("Max retries exceeded")
+    
+    def _get_cache_key(self, user_id: int, prompt: str) -> str:
+        """
+        Buat cache key berdasarkan user_id dan prompt
+        Menggunakan MD5 hash untuk menghemat memori
+        """
+        prompt_hash = hashlib.md5(prompt.encode()).hexdigest()
+        return f"{user_id}:{prompt_hash}"
+    
+    def _get_cached(self, key: str) -> Optional[str]:
+        """
+        Ambil response dari cache jika masih valid
+        """
+        if key in self.cache:
+            entry = self.cache[key]
+            if time.time() - entry['timestamp'] < self.cache_timeout:
+                self.cache_hits += 1
+                return entry['response']
+            else:
+                # Hapus jika expired
+                del self.cache[key]
+        self.cache_misses += 1
+        return None
+    
+    def _set_cache(self, key: str, response: str):
+        """
+        Simpan response ke cache dengan timestamp
+        """
+        self.cache[key] = {
+            'response': response, 
+            'timestamp': time.time()
+        }
+        
+        # Bersihkan cache lama jika terlalu besar
+        if len(self.cache) > 1000:
+            self._cleanup_cache()
+    
+    def _cleanup_cache(self):
+        """
+        Bersihkan cache yang sudah expired atau terlalu tua
+        """
+        now = time.time()
+        # Hapus entry yang lebih dari 1 jam
+        self.cache = {
+            k: v for k, v in self.cache.items() 
+            if now - v['timestamp'] < 3600
+        }
+        # Jika masih terlalu besar, hapus yang paling tua
+        if len(self.cache) > 1000:
+            sorted_items = sorted(self.cache.items(), key=lambda x: x[1]['timestamp'])
+            for i in range(len(sorted_items) // 2):
+                del self.cache[sorted_items[i][0]]
+    
+    def _update_history(self, user_id: int, user_message: str, bot_reply: str):
+        """Update conversation history untuk user"""
+        if user_id not in self.conversation_history:
+            self.conversation_history[user_id] = []
+        
+        # Tambah pesan user dan bot
+        self.conversation_history[user_id].append({
+            "role": "user",
+            "content": user_message,
+            "timestamp": datetime.now().isoformat()
+        })
+        self.conversation_history[user_id].append({
+            "role": "assistant",
+            "content": bot_reply,
+            "timestamp": datetime.now().isoformat()
+        })
+        
+        # Batasi history
+        if len(self.conversation_history[user_id]) > self.max_history * 2:
+            self.conversation_history[user_id] = self.conversation_history[user_id][-self.max_history*2:]
+
+
+print("✅ Bagian 6.1 selesai: Prompt Builder & API Call")
+print("="*70)
 
