@@ -7557,11 +7557,6 @@ Riwayat percakapan sebelumnya:
         else:
             await update.message.reply_text("❌ Tidak ada mode couple aktif.")
 
-
-print("✅ Bagian 10.1 selesai: Couple Roleplay")
-print("="*70)
-# ===================== BAB 10.2: Admin Commands =====================
-
     async def admin_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         """Menu admin - menampilkan semua command admin"""
         user_id = update.effective_user.id
