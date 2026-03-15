@@ -7653,8 +7653,9 @@ Riwayat percakapan sebelumnya:
         
         await update.message.reply_text(text, parse_mode='Markdown')
     
-    async def broadcast_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
-        user_id = update.effective_user.id
+    async def broadcast_start(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
+        await update.message.reply_text("📢 Kirim pesan broadcast:")
+        return Constants.CONFIRM_BROADCAST
         
         if not self.is_admin(user_id):
             await update.message.reply_text("⛔ Anda bukan admin.")
