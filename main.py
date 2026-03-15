@@ -7327,6 +7327,8 @@ print("✅ BAB 9 Selesai: Main Bot Class - Commands")
 print("="*70)
 # ===================== BAB 10: MAIN BOT CLASS - SPECIAL FEATURES =====================
 # Bagian 10.1: Couple Roleplay
+# Bagian 10.2: Admin Commands
+# Bagian 10.3: Advanced Features
 
 class CoupleRoleplay:
     """
@@ -7558,6 +7560,9 @@ Riwayat percakapan sebelumnya:
         else:
             await update.message.reply_text("❌ Tidak ada mode couple aktif.")
 
+
+# ===================== BAB 10.2: Admin Commands =====================
+
     async def admin_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         """Menu admin - menampilkan semua command admin"""
         user_id = update.effective_user.id
@@ -7578,14 +7583,13 @@ Riwayat percakapan sebelumnya:
             "/admin - Tampilkan menu ini\n"
             "/stats - Lihat statistik bot\n"
             "/db_stats - Lihat statistik database\n"
-            "/broadcast <pesan> - Kirim pesan ke semua user aktif\n"
             "/reload - Reload konfigurasi dari .env\n"
-            "/shutdown - Matikan bot secara graceful\n"
             "/list_users - Lihat daftar user aktif\n"
             "/get_user <user_id> - Lihat detail user\n"
             "/force_reset <user_id> - Reset paksa user\n"
             "/backup_db - Backup database\n"
-            "/vacuum - Optimasi database\n\n"
+            "/vacuum - Optimasi database\n"
+            "/memory_stats <user_id> - Statistik memori\n\n"
             "📊 **Status Bot:**\n"
             f"• Uptime: {stats['uptime']}\n"
             f"• User aktif: {stats['active_users']}\n"
@@ -7653,81 +7657,6 @@ Riwayat percakapan sebelumnya:
         
         await update.message.reply_text(text, parse_mode='Markdown')
     
-    async def broadcast_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
-        """Kirim pesan broadcast ke semua user aktif"""
-        user_id = update.effective_user.id
-        
-        if not self.is_admin(user_id):
-            await update.message.reply_text("⛔ Anda bukan admin.")
-            return
-        
-        if not context.args:
-            await update.message.reply_text(
-                "📢 **Broadcast**\n\n"
-                "Gunakan: /broadcast <pesan>\n\n"
-                "Contoh: /broadcast Halo semua, bot akan maintenance 5 menit lagi"
-            )
-            return
-        
-        message = " ".join(context.args)
-        
-        confirm_text = (
-            f"📢 Broadcast akan dikirim ke **{self.get_active_users_count()}** user aktif\n\n"
-            f"Pesan:\n{message}\n\n"
-            f"Yakin ingin mengirim?"
-        )
-        
-        keyboard = [
-            [
-                InlineKeyboardButton("✅ Kirim", callback_data="broadcast_yes"),
-                InlineKeyboardButton("❌ Batal", callback_data="broadcast_no")
-            ]
-        ]
-        reply_markup = InlineKeyboardMarkup(keyboard)
-        
-        context.user_data['broadcast_message'] = message
-        await update.message.reply_text(confirm_text, reply_markup=reply_markup, parse_mode='Markdown')
-        return Constants.CONFIRM_BROADCAST
-    
-    async def broadcast_callback(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
-        """Callback untuk konfirmasi broadcast"""
-        query = update.callback_query
-        await query.answer()
-        
-        user_id = query.from_user.id
-        
-        if not self.is_admin(user_id):
-            await query.edit_message_text("⛔ Anda bukan admin.")
-            return Constants.CONFIRM_BROADCAST
-        
-        if query.data == "broadcast_no":
-            await query.edit_message_text("❌ Broadcast dibatalkan.")
-            return ConversationHandler.END
-        
-        # Ambil pesan dari context
-        message = context.user_data.get('broadcast_message', '')
-        if not message:
-            await query.edit_message_text("❌ Error: Pesan tidak ditemukan.")
-            return ConversationHandler.END
-        
-        # Kirim broadcast
-        await query.edit_message_text("📢 Mengirim broadcast...")
-        
-        sent, failed = await self.broadcast_message(
-            f"📢 **Broadcast dari Admin:**\n\n{message}",
-            user_ids=list(self.sessions.keys()),
-            context=context
-        )
-        
-        await query.edit_message_text(
-            f"✅ Broadcast selesai!\n"
-            f"• Terkirim: {sent}\n"
-            f"• Gagal: {failed}"
-        )
-        
-        logger.info(f"Admin {user_id} sent broadcast to {sent} users")
-        return ConversationHandler.END
-    
     async def reload_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         """Reload konfigurasi dari .env"""
         user_id = update.effective_user.id
@@ -7762,67 +7691,6 @@ Riwayat percakapan sebelumnya:
         except Exception as e:
             await update.message.reply_text(f"❌ Gagal reload: {str(e)}")
             logger.error(f"Reload failed: {e}")
-    
-    async def shutdown_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
-        """Matikan bot secara graceful"""
-        user_id = update.effective_user.id
-        
-        if not self.is_admin(user_id):
-            await update.message.reply_text("⛔ Anda bukan admin.")
-            return
-        
-        # Konfirmasi shutdown
-        keyboard = [
-            [
-                InlineKeyboardButton("✅ Ya, matikan", callback_data="shutdown_yes"),
-                InlineKeyboardButton("❌ Batal", callback_data="shutdown_no")
-            ]
-        ]
-        reply_markup = InlineKeyboardMarkup(keyboard)
-        
-        await update.message.reply_text(
-            "⚠️ **PERINGATAN** ⚠️\n\n"
-            "Yakin ingin mematikan bot?\n"
-            f"• {self.get_active_users_count()} user aktif akan terputus\n"
-            "• Semua data di memory akan hilang\n"
-            "• Database tetap aman\n\n"
-            "Tindakan ini tidak bisa dibatalkan!",
-            reply_markup=reply_markup,
-            parse_mode='Markdown'
-        )
-        return Constants.CONFIRM_SHUTDOWN
-    
-    async def shutdown_callback(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
-        """Callback untuk konfirmasi shutdown"""
-        query = update.callback_query
-        await query.answer()
-        
-        user_id = query.from_user.id
-        
-        if not self.is_admin(user_id):
-            await query.edit_message_text("⛔ Anda bukan admin.")
-            return Constants.CONFIRM_SHUTDOWN
-        
-        if query.data == "shutdown_no":
-            await query.edit_message_text("✅ Shutdown dibatalkan.")
-            return ConversationHandler.END
-        
-        await query.edit_message_text("🛑 Mematikan bot... Selamat tinggal!")
-        
-        logger.warning(f"Bot is shutting down by admin {user_id}")
-        
-        # Simpan semua session ke database
-        for uid in list(self.sessions.keys()):
-            self.save_session_to_db(uid)
-        
-        # Tutup database
-        self.db.close_all()
-        
-        # Hentikan aplikasi
-        await context.application.stop()
-        await context.application.shutdown()
-        
-        return ConversationHandler.END
     
     async def list_users_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         """Lihat daftar user aktif"""
@@ -7891,10 +7759,6 @@ Riwayat percakapan sebelumnya:
             session = self.get_session(target_id)
         
         # Dapatkan statistik
-        level_stats = self.leveling.get_user_stats(target_id)
-        db_stats = self.db.get_user_stats(target_id)
-        pref_stats = self.analyzer.get_user_stats(target_id)
-        
         text = (
             f"**📋 DETAIL USER `{target_id}`**\n\n"
             f"**Identitas:**\n"
@@ -7975,6 +7839,9 @@ Riwayat percakapan sebelumnya:
         except Exception as e:
             await update.message.reply_text(f"❌ Vacuum gagal: {e}")
 
+
+# ===================== BAB 10.3: Advanced Features =====================
+
     async def memory_stats_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         """Lihat statistik memori (hanya admin)"""
         user_id = update.effective_user.id
@@ -8035,11 +7902,7 @@ Riwayat percakapan sebelumnya:
                 # Dapatkan pesan inisiatif
                 thought = await thought_system.get_next_initiative()
                 if thought:
-                    # Kirim ke user (nanti dihandle di message handler)
                     logger.debug(f"Initiative for user {user_id}: {thought}")
-                    # Di sini sebenarnya akan dikirim ke user, tapi karena ini background task
-                    # dan tidak punya akses ke update, kita simpan dulu di suatu tempat
-                    # Untuk sementara, kita log saja
         except Exception as e:
             logger.error(f"Background thought error for {user_id}: {e}")
     
@@ -8060,7 +7923,6 @@ Riwayat percakapan sebelumnya:
                 proactive = await developer.generate_proactive_message(context_data)
                 if proactive:
                     logger.debug(f"Proactive story for user {user_id}: {proactive}")
-                    # Sama seperti di atas, ini akan dikirim oleh message handler nanti
         except Exception as e:
             logger.error(f"Story development error for {user_id}: {e}")
     
@@ -8950,16 +8812,7 @@ def main():
         persistent=False
     )
     
-    # 4. SHUTDOWN Conversation Handler
-    shutdown_conv = ConversationHandler(
-        entry_points=[CommandHandler('shutdown', bot.shutdown_command)],
-        states={
-            Constants.CONFIRM_SHUTDOWN: [CallbackQueryHandler(bot.shutdown_callback, pattern='^shutdown_')],
-        },
-        fallbacks=[CommandHandler('cancel', bot.cancel_command)],
-        name="shutdown_conversation",
-        persistent=False
-    )
+    # BROADCAST dan SHUTDOWN TELAH DIHAPUS
     
     print("  • Conversation handlers created")
     
@@ -8967,7 +8820,7 @@ def main():
     app.add_handler(start_conv)
     app.add_handler(end_conv)
     app.add_handler(close_conv)
-    app.add_handler(shutdown_conv)
+    # broadcast_conv dan shutdown_conv TELAH DIHAPUS
     
     # User commands
     app.add_handler(CommandHandler("status", bot.status_command))
@@ -8981,7 +8834,7 @@ def main():
     app.add_handler(CommandHandler("couple_next", bot.couple_next))
     app.add_handler(CommandHandler("couple_stop", bot.couple_stop))
     
-    # Admin commands (tanpa broadcast)
+    # Admin commands (tanpa broadcast dan shutdown)
     app.add_handler(CommandHandler("admin", bot.admin_command))
     app.add_handler(CommandHandler("stats", bot.stats_command))
     app.add_handler(CommandHandler("db_stats", bot.db_stats_command))
@@ -9068,7 +8921,7 @@ def main():
         print("• /stats     - Statistik bot")
         print("• /db_stats  - Statistik database")
         print("• /reload    - Reload konfigurasi")
-        print("• /shutdown  - Matikan bot")
+        # broadcast dan shutdown telah dihapus
         print("• /list_users - Daftar user")
         print("• /get_user  - Detail user")
         print("• /force_reset - Reset user")
@@ -9134,7 +8987,7 @@ def main():
     except Exception as e:
         # Fatal error
         print("\n\n" + "="*70)
-        print("❌ **FATAL ERROR**")
+        print("❌ **FATAL ERROR**)
         print("="*70)
         print(f"\nError: {e}")
         print("\nBot crashed. Check gadis.log for details.")
