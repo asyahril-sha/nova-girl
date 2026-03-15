@@ -7654,7 +7654,6 @@ Riwayat percakapan sebelumnya:
         await update.message.reply_text(text, parse_mode='Markdown')
     
     async def broadcast_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
-        """Kirim pesan broadcast ke semua user aktif"""
         user_id = update.effective_user.id
         
         if not self.is_admin(user_id):
