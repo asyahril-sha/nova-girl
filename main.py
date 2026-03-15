@@ -6784,9 +6784,12 @@ class GadisUltimateV60:
         
     async def start_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         """Memulai hubungan baru dengan bot"""
+        print(f"🔥🔥🔥 START COMMAND DIPANGGIL! User: {update.effective_user.id}")
+        print(f"📝 Chat ID: {update.effective_chat.id}")
+    
         user_id = update.effective_user.id
         username = update.effective_user.username or update.effective_user.first_name
-        
+    
         self.log_command('start', user_id, username)
         
         # Cek apakah sudah ada sesi aktif
@@ -7786,12 +7789,8 @@ class GadisUltimateV60:
                 logger.info(f"📖 Proactive story sent to user {user_id}")
 
     async def handle_message(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
-        """
-        Handle semua pesan dari user
-        Ini adalah inti dari bot yang memproses setiap pesan
-        """
-        if not update.message or not update.message.text:
-            return
+        """Handle semua pesan dari user"""
+        print(f"📨 MESSAGE HANDLER DIPANGGIL! User: {update.effective_user.id}")
         
         user_id = update.effective_user.id
         username = update.effective_user.username or update.effective_user.first_name
@@ -8442,7 +8441,7 @@ log.setLevel(logging.ERROR)
 flask_app = Flask(__name__)
 bot_instance = None
 
-# ===== WEBHOOK ENDPOINT (SYNC VERSION WITH TASK) =====
+# ===== WEBHOOK ENDPOINT (FINAL FIX) =====
 @flask_app.route('/webhook', methods=['POST'])
 def webhook():
     """Handle incoming webhook updates from Telegram"""
@@ -8453,23 +8452,22 @@ def webhook():
         try:
             print(f"📥 Webhook request received")
             update_data = request.get_json(force=True)
-            print(f"📦 Update data: {str(update_data)[:200]}...")
+            print(f"📦 Update data ID: {update_data.get('update_id', 'unknown')}")
             
             # Buat update object
             update = Update.de_json(update_data, bot_instance.application.bot)
             
-            # Dapatkan event loop yang sudah ada
+            # Dapatkan event loop
             try:
-                loop = asyncio.get_running_loop()
+                loop = asyncio.get_event_loop()
             except RuntimeError:
-                # Tidak ada loop running, buat task baru
                 loop = asyncio.new_event_loop()
                 asyncio.set_event_loop(loop)
-                
-            # Buat task untuk memproses update (tidak di-await)
-            loop.create_task(bot_instance.application.process_update(update))
             
-            print(f"✅ Update task created")
+            # Buat task
+            loop.create_task(bot_instance.application.process_update(update))
+            print(f"✅ Update task created for update_id: {update.update_id}")
+            
             return 'OK', 200
         except Exception as e:
             print(f"❌ Error processing webhook: {e}")
@@ -8477,7 +8475,7 @@ def webhook():
             traceback.print_exc()
             return 'Error', 500
     else:
-        print(f"⚠️ Bot not ready: bot_instance={bot_instance is not None}")
+        print(f"⚠️ Bot not ready")
         return 'Bot not ready', 503
 
 # ===== HEALTHCHECK ENDPOINTS =====
