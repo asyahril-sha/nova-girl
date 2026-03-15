@@ -6784,22 +6784,13 @@ class GadisUltimateV60:
         
     async def start_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         """Memulai hubungan baru dengan bot"""
-        print("🔥🔥🔥🔥🔥🔥🔥 START COMMAND DIPANGGIL! 🔥🔥🔥🔥🔥🔥🔥")
-        print(f"📝 User ID: {update.effective_user.id}")
-        print(f"📝 Chat ID: {update.effective_chat.id}")
-        print(f"📝 Username: {update.effective_user.username}")
-    
-        # Force flush print
-        import sys
-        sys.stdout.flush()
-    
         user_id = update.effective_user.id
         username = update.effective_user.username or update.effective_user.first_name
     
-    self.log_command('start', user_id, username)
+        self.log_command('start', user_id, username)
     
         # Cek apakah sudah ada sesi aktif
-        if user_id in self.sessions:
+        if user_id in self.sessions:  # ← LINE 6802
             await update.message.reply_text(
                 "Kamu sudah memiliki sesi aktif. Ketik /close untuk menutup sesi atau /pause untuk jeda."
             )
