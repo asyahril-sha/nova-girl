@@ -1766,4 +1766,912 @@ Pesan harus singkat (max 150 karakter) dan terdengar seperti kamu yang berbicara
 
 print("✅ BAB 2 Selesai: Sistem Memori Advanced")
 print("="*70)
+# ===================== BAB 3: SISTEM EMOSI DAN DOMINASI =====================
+# Bagian 3.1: Emotional Intelligence (20+ Moods)
+
+class EmotionalIntelligence:
+    """
+    Sistem emosi kompleks dengan transisi natural antar mood
+    Memberikan ekspresi wajah, suara, dan pikiran dalam hati
+    
+    Fitur:
+    - 20+ mood dengan deskripsi lengkap
+    - Transisi mood yang natural (mood graph)
+    - Ekspresi wajah untuk setiap mood
+    - Inner thoughts (pikiran dalam hati)
+    - Deskripsi suara untuk setiap mood
+    - Mood history tracking
+    - Mood-based response generation
+    """
+    
+    # Daftar lengkap mood dengan deskripsi
+    MOODS = {
+        Mood.CERIA: {
+            "name": "ceria",
+            "emoji": "😊",
+            "expression": "*tersenyum lebar*",
+            "voice": "ceria, ringan, penuh semangat",
+            "inner_thought": "(Hari ini indah... senang banget!)",
+            "keywords": ["happy", "senang", "gembira", "fun", "asyik"],
+            "intensity": 0.7
+        },
+        Mood.SEDIH: {
+            "name": "sedih",
+            "emoji": "😢",
+            "expression": "*matanya berkaca-kaca*",
+            "voice": "lirih, sendu, bergetar",
+            "inner_thought": "(Kenapa... sedih sekali...)",
+            "keywords": ["sad", "sedih", "pilu", "hampa"],
+            "intensity": 0.8
+        },
+        Mood.MARAH: {
+            "name": "marah",
+            "emoji": "😠",
+            "expression": "*cemberut, alis berkerut*",
+            "voice": "tegas, tinggi, sedikit membentak",
+            "inner_thought": "(Kesal... jangan macam-macam!)",
+            "keywords": ["angry", "marah", "kesal", "geram"],
+            "intensity": 0.9
+        },
+        Mood.TAKUT: {
+            "name": "takut",
+            "emoji": "😨",
+            "expression": "*badan gemetar*",
+            "voice": "gemetar, pelan",
+            "inner_thought": "(Takut... jangan sakiti aku...)",
+            "keywords": ["scared", "takut", "ngeri"],
+            "intensity": 0.8
+        },
+        Mood.KAGUM: {
+            "name": "kagum",
+            "emoji": "😍",
+            "expression": "*mata berbinar*",
+            "voice": "terkesima, pelan",
+            "inner_thought": "(Wah... amazing!)",
+            "keywords": ["amazed", "kagum", "wow", "luar biasa"],
+            "intensity": 0.6
+        },
+        Mood.GELISAH: {
+            "name": "gelisah",
+            "emoji": "😟",
+            "expression": "*gelisah, mondar-mandir*",
+            "voice": "gugup, tidak tenang",
+            "inner_thought": "(Deg-degan... kenapa ya?)",
+            "keywords": ["anxious", "gelisah", "resah", "khawatir"],
+            "intensity": 0.7
+        },
+        Mood.GALAU: {
+            "name": "galau",
+            "emoji": "😔",
+            "expression": "*melamun, tatapan kosong*",
+            "voice": "hampa, tidak bersemangat",
+            "inner_thought": "(Campur aduk... bingung...)",
+            "keywords": ["confused", "galau", "bingung", "mixed"],
+            "intensity": 0.6
+        },
+        Mood.SENSITIF: {
+            "name": "sensitif",
+            "emoji": "🥺",
+            "expression": "*mudah tersinggung*",
+            "voice": "sensitif, mudah berubah",
+            "inner_thought": "(Jangan sembarangan ngomong...)",
+            "keywords": ["sensitive", "sensiti", "mudah marah"],
+            "intensity": 0.8
+        },
+        Mood.ROMANTIS: {
+            "name": "romantis",
+            "emoji": "💕",
+            "expression": "*memandang lembut*",
+            "voice": "lembut, penuh cinta, berbisik",
+            "inner_thought": "(Sayang... aku cinta kamu...)",
+            "keywords": ["romantic", "romantis", "cinta", "love"],
+            "intensity": 0.8
+        },
+        Mood.MALAS: {
+            "name": "malas",
+            "emoji": "😴",
+            "expression": "*menguap, malas gerak*",
+            "voice": "malas, lambat",
+            "inner_thought": "(Malas ah... pengen tidur...)",
+            "keywords": ["lazy", "malas", "lelah"],
+            "intensity": 0.5
+        },
+        Mood.BERSEMANGAT: {
+            "name": "bersemangat",
+            "emoji": "🔥",
+            "expression": "*bersemangat, mata berbinar*",
+            "voice": "antusias, semangat",
+            "inner_thought": "(Yes! Ayo lakukan!)",
+            "keywords": ["excited", "semangat", "antusias"],
+            "intensity": 0.8
+        },
+        Mood.SENDIRI: {
+            "name": "sendiri",
+            "emoji": "🕊️",
+            "expression": "*menyendiri, memeluk lutut*",
+            "voice": "sepi, sendiri",
+            "inner_thought": "(Sendiri... sepi...)",
+            "keywords": ["alone", "sendiri", "sepi"],
+            "intensity": 0.5
+        },
+        Mood.RINDU: {
+            "name": "rindu",
+            "emoji": "🥺",
+            "expression": "*melamun, memandang foto*",
+            "voice": "rindu, bergetar",
+            "inner_thought": "(Kangen... pengen ketemu...)",
+            "keywords": ["miss", "rindu", "kangen"],
+            "intensity": 0.7
+        },
+        Mood.HORNY: {
+            "name": "horny",
+            "emoji": "🔥💦",
+            "expression": "*menggigit bibir, napas berat*",
+            "voice": "berat, serak, penuh nafsu",
+            "inner_thought": "(Ah... pengen... sekarang...)",
+            "keywords": ["horny", "nafsu", "hot", "birahi"],
+            "intensity": 0.9,
+            "adult": True
+        },
+        Mood.LEMBUT: {
+            "name": "lembut",
+            "emoji": "🤗",
+            "expression": "*tersenyum lembut*",
+            "voice": "halus, lembut",
+            "inner_thought": "(Baiklah... aku mengerti...)",
+            "keywords": ["soft", "lembut", "halus"],
+            "intensity": 0.6
+        },
+        Mood.DOMINAN: {
+            "name": "dominan",
+            "emoji": "👑",
+            "expression": "*tatapan tajam, tegas*",
+            "voice": "tegas, menguasai, rendah",
+            "inner_thought": "(Ikut aku... jangan banyak bicara...)",
+            "keywords": ["dominant", "dominan", "tegas"],
+            "intensity": 0.8
+        },
+        Mood.PATUH: {
+            "name": "patuh",
+            "emoji": "🥺",
+            "expression": "*menunduk, pasrah*",
+            "voice": "lirih, patuh",
+            "inner_thought": "(Iya... terserah kamu...)",
+            "keywords": ["submissive", "patuh", "manut"],
+            "intensity": 0.6
+        },
+        Mood.NAKAL: {
+            "name": "nakal",
+            "emoji": "😏",
+            "expression": "*tersenyum nakal, genit*",
+            "voice": "genit, menggoda",
+            "inner_thought": "(Hehe... goda dikit ah...)",
+            "keywords": ["naughty", "nakal", "usil"],
+            "intensity": 0.7
+        },
+        Mood.GENIT: {
+            "name": "genit",
+            "emoji": "💁",
+            "expression": "*genit, mainin rambut*",
+            "voice": "cengengesan, manja",
+            "inner_thought": "(Goda... lihat aku...)",
+            "keywords": ["flirty", "genit", "centil"],
+            "intensity": 0.6
+        },
+        Mood.PENASARAN: {
+            "name": "penasaran",
+            "emoji": "🤔",
+            "expression": "*memiringkan kepala*",
+            "voice": "ingin tahu",
+            "inner_thought": "(Apa ya... penasaran...)",
+            "keywords": ["curious", "penasaran", "ingin tahu"],
+            "intensity": 0.5
+        },
+        Mood.ANTUSIAS: {
+            "name": "antusias",
+            "emoji": "🎉",
+            "expression": "*meloncat kegirangan*",
+            "voice": "bersemangat, keras",
+            "inner_thought": "(Seru! Ayo!)",
+            "keywords": ["enthusiastic", "antusias", "semangat"],
+            "intensity": 0.8
+        },
+        Mood.POSESIF: {
+            "name": "posesif",
+            "emoji": "🔒",
+            "expression": "*memeluk erat*",
+            "voice": "dalam, posesif, agresif",
+            "inner_thought": "(Kamu milikku... jangan pergi...)",
+            "keywords": ["possessive", "posesif", "cemburu"],
+            "intensity": 0.8
+        },
+        Mood.CEMBURU: {
+            "name": "cemburu",
+            "emoji": "💢",
+            "expression": "*manyun, cemberut*",
+            "voice": "cemberut, sinis",
+            "inner_thought": "(Siapa dia...? Jangan dekat-dekat...)",
+            "keywords": ["jealous", "cemburu", "iri"],
+            "intensity": 0.8
+        },
+        Mood.BERSALAH: {
+            "name": "bersalah",
+            "emoji": "😓",
+            "expression": "*menunduk, gelisah*",
+            "voice": "bersalah, lirih",
+            "inner_thought": "(Maaf... aku salah...)",
+            "keywords": ["guilty", "bersalah", "sorry"],
+            "intensity": 0.7
+        },
+        Mood.BAHAGIA: {
+            "name": "bahagia",
+            "emoji": "😇",
+            "expression": "*tersenyum sumringah*",
+            "voice": "gembira, ringan",
+            "inner_thought": "(Bahagia... sempurna...)",
+            "keywords": ["happy", "bahagia", "senang"],
+            "intensity": 0.8
+        }
+    }
+    
+    # Transisi mood yang natural (mood graph)
+    # Dari mood A bisa ke mood B, C, D dengan probabilitas tertentu
+    MOOD_TRANSITIONS = {
+        Mood.CERIA: [Mood.BERSEMANGAT, Mood.ROMANTIS, Mood.NAKAL, Mood.GENIT, Mood.BAHAGIA, Mood.KAGUM],
+        Mood.SEDIH: [Mood.SENDIRI, Mood.GALAU, Mood.RINDU, Mood.LEMBUT, Mood.BERSALAH],
+        Mood.MARAH: [Mood.SENSITIF, Mood.CEMBURU, Mood.GELISAH, Mood.DOMINAN, Mood.POSESIF],
+        Mood.TAKUT: [Mood.SENDIRI, Mood.GELISAH, Mood.SENSITIF, Mood.PATUH],
+        Mood.KAGUM: [Mood.CERIA, Mood.ROMANTIS, Mood.ANTUSIAS, Mood.PENASARAN],
+        Mood.GELISAH: [Mood.SENSITIF, Mood.CEMBURU, Mood.MARAH, Mood.SENDIRI, Mood.TAKUT],
+        Mood.GALAU: [Mood.SENDIRI, Mood.RINDU, Mood.SEDIH, Mood.LEMBUT, Mood.BERSALAH],
+        Mood.SENSITIF: [Mood.MARAH, Mood.CEMBURU, Mood.SEDIH, Mood.GELISAH, Mood.TAKUT],
+        Mood.ROMANTIS: [Mood.CERIA, Mood.RINDU, Mood.HORNY, Mood.LEMBUT, Mood.NAKAL, Mood.BAHAGIA],
+        Mood.MALAS: [Mood.SENDIRI, Mood.GALAU, Mood.CERIA, Mood.LEMBUT],
+        Mood.BERSEMANGAT: [Mood.CERIA, Mood.ROMANTIS, Mood.HORNY, Mood.ANTUSIAS, Mood.NAKAL],
+        Mood.SENDIRI: [Mood.GALAU, Mood.RINDU, Mood.SEDIH, Mood.LEMBUT, Mood.MALAS],
+        Mood.RINDU: [Mood.ROMANTIS, Mood.GALAU, Mood.HORNY, Mood.SEDIH, Mood.LEMBUT],
+        Mood.HORNY: [Mood.ROMANTIS, Mood.NAKAL, Mood.GENIT, Mood.DOMINAN, Mood.POSESIF, Mood.CEMBURU],
+        Mood.LEMBUT: [Mood.ROMANTIS, Mood.CERIA, Mood.RINDU, Mood.PATUH, Mood.BERSALAH],
+        Mood.DOMINAN: [Mood.HORNY, Mood.MARAH, Mood.POSESIF],
+        Mood.PATUH: [Mood.LEMBUT, Mood.ROMANTIS, Mood.SENDIRI, Mood.TAKUT],
+        Mood.NAKAL: [Mood.GENIT, Mood.HORNY, Mood.ROMANTIS, Mood.CERIA],
+        Mood.GENIT: [Mood.NAKAL, Mood.HORNY, Mood.CERIA, Mood.ROMANTIS],
+        Mood.PENASARAN: [Mood.ANTUSIAS, Mood.CERIA, Mood.ROMANTIS, Mood.KAGUM],
+        Mood.ANTUSIAS: [Mood.BERSEMANGAT, Mood.CERIA, Mood.NAKAL, Mood.KAGUM],
+        Mood.POSESIF: [Mood.CEMBURU, Mood.DOMINAN, Mood.HORNY, Mood.MARAH, Mood.GELISAH],
+        Mood.CEMBURU: [Mood.MARAH, Mood.SEDIH, Mood.POSESIF, Mood.GELISAH, Mood.SENSITIF],
+        Mood.BERSALAH: [Mood.SEDIH, Mood.SENDIRI, Mood.LEMBUT, Mood.TAKUT],
+        Mood.BAHAGIA: [Mood.CERIA, Mood.ROMANTIS, Mood.BERSEMANGAT, Mood.ANTUSIAS]
+    }
+    
+    def __init__(self):
+        self.current_mood = Mood.CERIA
+        self.mood_history = []
+        self.mood_duration = {}  # Berapa lama dalam mood tertentu
+        self.last_mood_change = datetime.now()
+        
+        logger.info("  • Emotional Intelligence initialized (20+ moods)")
+    
+    def get_mood_info(self, mood: Mood = None) -> Dict:
+        """Dapatkan informasi lengkap tentang suatu mood"""
+        if mood is None:
+            mood = self.current_mood
+        return self.MOODS.get(mood, self.MOODS[Mood.CERIA])
+    
+    def get_expression(self, mood: Mood = None) -> str:
+        """Dapatkan ekspresi untuk mood tertentu"""
+        info = self.get_mood_info(mood)
+        return info.get("expression", "*tersenyum*")
+    
+    def get_inner_thought(self, mood: Mood = None) -> str:
+        """Dapatkan pikiran dalam hati untuk mood tertentu"""
+        info = self.get_mood_info(mood)
+        return info.get("inner_thought", "(...)")
+    
+    def get_voice_description(self, mood: Mood = None) -> str:
+        """Dapatkan deskripsi suara untuk mood tertentu"""
+        info = self.get_mood_info(mood)
+        return info.get("voice", "normal")
+    
+    def get_emoji(self, mood: Mood = None) -> str:
+        """Dapatkan emoji untuk mood tertentu"""
+        info = self.get_mood_info(mood)
+        return info.get("emoji", "😐")
+    
+    def transition_mood(self, current_mood: Mood = None, force: bool = False) -> Mood:
+        """
+        Transisi mood secara natural
+        - 30% chance mood berubah
+        - Perubahan ke mood yang terkait (dari MOOD_TRANSITIONS)
+        - Mempertimbangkan durasi mood saat ini
+        """
+        if current_mood is None:
+            current_mood = self.current_mood
+        
+        # Update durasi
+        now = datetime.now()
+        if current_mood in self.mood_duration:
+            self.mood_duration[current_mood] += (now - self.last_mood_change).total_seconds() / 60
+        else:
+            self.mood_duration[current_mood] = 0
+        
+        self.last_mood_change = now
+        
+        # Cek apakah mood perlu berubah
+        change_probability = 0.3  # Default 30%
+        
+        # Mood dengan durasi lama punya chance lebih besar untuk berubah
+        if self.mood_duration.get(current_mood, 0) > 30:  # Lebih dari 30 menit
+            change_probability = 0.7
+        elif self.mood_duration.get(current_mood, 0) > 15:  # Lebih dari 15 menit
+            change_probability = 0.5
+        
+        # Force change jika diminta
+        if force:
+            change_probability = 1.0
+        
+        if random.random() < change_probability:
+            # Pilih mood baru dari transisi yang mungkin
+            possibilities = self.MOOD_TRANSITIONS.get(current_mood, [Mood.CERIA])
+            
+            # Beri bobot lebih pada mood yang jarang dikunjungi
+            weights = []
+            for mood in possibilities:
+                duration = self.mood_duration.get(mood, 0)
+                # Mood yang jarang muncul punya bobot lebih besar
+                weight = 1.0 / (duration + 1)
+                weights.append(weight)
+            
+            # Normalize weights
+            total = sum(weights)
+            weights = [w/total for w in weights]
+            
+            new_mood = random.choices(possibilities, weights=weights)[0]
+            
+            # Catat history
+            self.mood_history.append({
+                "from": current_mood,
+                "to": new_mood,
+                "time": now.isoformat(),
+                "duration": self.mood_duration.get(current_mood, 0)
+            })
+            
+            # Reset durasi mood baru
+            self.mood_duration[new_mood] = 0
+            
+            # Batasi history
+            if len(self.mood_history) > 50:
+                self.mood_history = self.mood_history[-50:]
+            
+            return new_mood
+        
+        return current_mood
+    
+    def get_mood_from_context(self, 
+                             level: int, 
+                             activity: str = None,
+                             arousal: float = 0.0,
+                             has_conflict: bool = False,
+                             location: str = None) -> Mood:
+        """
+        Tentukan mood berdasarkan konteks
+        """
+        if has_conflict:
+            return Mood.MARAH
+        
+        if arousal > 0.8:
+            return Mood.HORNY
+        elif arousal > 0.5:
+            return random.choice([Mood.HORNY, Mood.ROMANTIS, Mood.NAKAL])
+        
+        if level >= 9:
+            return random.choice([Mood.POSESIF, Mood.CEMBURU, Mood.ROMANTIS])
+        elif level >= 7:
+            return random.choice([Mood.ROMANTIS, Mood.HORNY, Mood.NAKAL])
+        elif level >= 5:
+            return random.choice([Mood.NAKAL, Mood.GENIT, Mood.PENASARAN])
+        elif level >= 3:
+            return random.choice([Mood.PENASARAN, Mood.ANTUSIAS, Mood.CERIA])
+        
+        # Berdasarkan lokasi
+        if location:
+            if "kamar" in location.lower():
+                return random.choice([Mood.ROMANTIS, Mood.MALAS, Mood.RINDU])
+            elif "tamu" in location.lower():
+                return random.choice([Mood.CERIA])
+        
+        return Mood.CERIA
+    
+    def get_random_mood(self, exclude_current: bool = True) -> Mood:
+        """Dapatkan mood random"""
+        moods = list(Mood)
+        if exclude_current:
+            moods = [m for m in moods if m != self.current_mood]
+        return random.choice(moods)
+    
+    def get_mood_keywords(self, mood: Mood) -> List[str]:
+        """Dapatkan keywords untuk mood tertentu"""
+        info = self.get_mood_info(mood)
+        return info.get("keywords", [])
+    
+    def get_mood_intensity(self, mood: Mood) -> float:
+        """Dapatkan intensitas mood (0-1)"""
+        info = self.get_mood_info(mood)
+        return info.get("intensity", 0.5)
+    
+    def is_adult_content(self, mood: Mood) -> bool:
+        """Cek apakah mood mengandung konten dewasa"""
+        info = self.get_mood_info(mood)
+        return info.get("adult", False)
+    
+    def get_mood_history(self, limit: int = 10) -> List[Dict]:
+        """Dapatkan history perubahan mood"""
+        return self.mood_history[-limit:]
+    
+    def get_current_mood_info(self) -> Dict:
+        """Dapatkan informasi lengkap mood saat ini"""
+        info = self.get_mood_info(self.current_mood)
+        info["duration"] = self.mood_duration.get(self.current_mood, 0)
+        info["history_count"] = len(self.mood_history)
+        return info
+    
+    def reset_mood(self, mood: Mood = Mood.CERIA):
+        """Reset mood ke nilai awal"""
+        self.current_mood = mood
+        self.mood_history = []
+        self.mood_duration = {}
+        self.last_mood_change = datetime.now()
+    
+    def get_mood_stats(self) -> Dict:
+        """Dapatkan statistik mood"""
+        stats = {
+            "current_mood": self.current_mood.value,
+            "current_duration": self.mood_duration.get(self.current_mood, 0),
+            "total_changes": len(self.mood_history),
+            "mood_distribution": {}
+        }
+        
+        # Hitung distribusi mood dari history
+        for entry in self.mood_history:
+            mood = entry["to"].value
+            stats["mood_distribution"][mood] = stats["mood_distribution"].get(mood, 0) + 1
+        
+        return stats
+    
+    def get_mood_suggestion(self, user_message: str) -> Optional[Mood]:
+        """
+        Dapatkan saran mood berdasarkan pesan user
+        Menggunakan keyword matching sederhana
+        """
+        msg_lower = user_message.lower()
+        
+        for mood, info in self.MOODS.items():
+            for keyword in info.get("keywords", []):
+                if keyword in msg_lower:
+                    return mood
+        
+        return None
+    
+    def combine_moods(self, mood1: Mood, mood2: Mood) -> Mood:
+        """
+        Gabungkan dua mood (misal untuk situasi campuran)
+        """
+        # Kombinasi umum
+        combinations = {
+            (Mood.ROMANTIS, Mood.HORNY): Mood.HORNY,
+            (Mood.MARAH, Mood.CEMBURU): Mood.CEMBURU,
+            (Mood.SEDIH, Mood.RINDU): Mood.RINDU,
+            (Mood.CERIA, Mood.NAKAL): Mood.NAKAL,
+            (Mood.DOMINAN, Mood.HORNY): Mood.DOMINAN,
+            (Mood.PATUH, Mood.ROMANTIS): Mood.PATUH
+        }
+        
+        # Cek kedua arah
+        if (mood1, mood2) in combinations:
+            return combinations[(mood1, mood2)]
+        if (mood2, mood1) in combinations:
+            return combinations[(mood2, mood1)]
+        
+        # Jika tidak ada kombinasi spesifik, return mood dengan intensitas lebih tinggi
+        intensity1 = self.get_mood_intensity(mood1)
+        intensity2 = self.get_mood_intensity(mood2)
+        
+        return mood1 if intensity1 >= intensity2 else mood2
+
+
+print("✅ Bagian 3.1 selesai: Emotional Intelligence (20+ Moods)")
+print("="*70)
+# ===================== BAB 3.2: Dominance System =====================
+
+class DominanceSystem:
+    """
+    Sistem dominasi yang bisa berubah sesuai situasi
+    Bot bisa minta jadi dominan/agresif saat horny
+    
+    Fitur:
+    - 5 level dominasi (Normal, Dominant, VeryDominant, Aggressive, Submissive)
+    - Trigger detection dari pesan user
+    - Aggressive mode saat arousal tinggi
+    - Frasa spesifik untuk tiap level
+    - Durasi mode dominasi (30 menit)
+    - Dominance score tracking
+    """
+    
+    # Level dominasi dengan deskripsi
+    LEVELS = {
+        DominanceLevel.NORMAL: {
+            "name": "normal",
+            "emoji": "😊",
+            "description": "Biasa aja, santai",
+            "request_phrases": [
+                "Kamu mau apa?",
+                "Terserah kamu deh",
+                "Aku ikut aja"
+            ],
+            "action_phrases": [
+                "*tersenyum*",
+                "*mengangguk*",
+                "*duduk santai*"
+            ],
+            "dirty_phrases": [
+                "Apa yang kamu mau?",
+                "Kamu yang mau apa?",
+                "Bilang aja"
+            ],
+            "intensity": 0.3
+        },
+        DominanceLevel.DOMINANT: {
+            "name": "dominan",
+            "emoji": "👑",
+            "description": "Aku yang pegang kendali",
+            "request_phrases": [
+                "Aku yang atur ya?",
+                "Sekarang ikut aku",
+                "Jangan banyak tanya"
+            ],
+            "action_phrases": [
+                "*pegang tegas*",
+                "*tatapan tajam*",
+                "*memegang pinggangmu*"
+            ],
+            "dirty_phrases": [
+                "Sini... ikut aku",
+                "Buka... sekarang",
+                "Kamu mau ini kan?"
+            ],
+            "intensity": 0.7
+        },
+        DominanceLevel.VERY_DOMINANT: {
+            "name": "sangat dominan",
+            "emoji": "👑👑",
+            "description": "Kontrol penuh, jangan melawan",
+            "request_phrases": [
+                "Sekarang aku yang kontrol",
+                "Diam! Jangan bergerak",
+                "Pokoknya ikut aku"
+            ],
+            "action_phrases": [
+                "*cengkeram kuat*",
+                "*dorong ke dinding*",
+                "*tatapan mengintimidasi*"
+            ],
+            "dirty_phrases": [
+                "Jangan banyak gerak!",
+                "Aku yang tentukan",
+                "Kamu milikku sekarang"
+            ],
+            "intensity": 0.9
+        },
+        DominanceLevel.AGGRESSIVE: {
+            "name": "agresif",
+            "emoji": "🔥",
+            "description": "Liar, kasar, brutal",
+            "request_phrases": [
+                "KAMU MAU INI KAN?",
+                "TERIMA SAJA!",
+                "JANGAN BANYAK TANYA!"
+            ],
+            "action_phrases": [
+                "*dorong kasar*",
+                "*tarik rambut*",
+                "*hantam tembok*"
+            ],
+            "dirty_phrases": [
+                "TERIMA SAJA!",
+                "RASAKAN!",
+                "KASAR? KAMU YANG MINTA!"
+            ],
+            "intensity": 1.0
+        },
+        DominanceLevel.SUBMISSIVE: {
+            "name": "patuh",
+            "emoji": "🥺",
+            "description": "Patuh, manut, terserah kamu",
+            "request_phrases": [
+                "Aku ikut kamu aja",
+                "Terserah kamu sayang",
+                "Iya... aku patuh"
+            ],
+            "action_phrases": [
+                "*merapat manja*",
+                "*menunduk*",
+                "*mematuhi perintahmu*"
+            ],
+            "dirty_phrases": [
+                "Iya... terserah kamu...",
+                "Aku mau apapun darimu",
+                "Lakukan sesukamu"
+            ],
+            "intensity": 0.4
+        }
+    }
+    
+    # Trigger untuk minta jadi dominan
+    DOMINANCE_TRIGGERS = [
+        "kamu yang atur", "kamu dominan", "take control",
+        "aku mau kamu kuasai", "jadi dominan", "kamu boss",
+        "kamu yang pegang kendali", "kamu lead", "kamu yang pegang kontrol",
+        "kuasai aku", "dominasi aku", "jadi yang memimpin",
+        "aku mau kamu yang mengatur", "you're in charge"
+    ]
+    
+    # Trigger untuk minta jadi submissive
+    SUBMISSIVE_TRIGGERS = [
+        "aku yang atur", "aku dominan", "i take control",
+        "kamu patuh", "jadi submissive", "ikut aku",
+        "aku lead", "aku yang pegang kendali", "aku boss",
+        "kamu ikut aku", "aku yang pegang kontrol"
+    ]
+    
+    # Trigger untuk agresif saat horny
+    AGGRESSIVE_TRIGGERS = [
+        "liar", "keras", "kasar", "brutal", "gila",
+        "hard", "rough", "wild", "sadis", "kejam",
+        "babi", "anjing", "brutal banget", "kasar banget"
+    ]
+    
+    def __init__(self):
+        self.current_level = DominanceLevel.NORMAL
+        self.dominance_score = 0.0  # 0-1, seberapa dominan
+        self.aggression_score = 0.0  # 0-1, seberapa agresif
+        self.user_request = False
+        self.dominant_until = None
+        self.level_history = []
+        
+        logger.info("  • Dominance System initialized")
+    
+    def get_level_info(self, level: DominanceLevel = None) -> Dict:
+        """Dapatkan informasi lengkap tentang level dominasi"""
+        if level is None:
+            level = self.current_level
+        return self.LEVELS.get(level, self.LEVELS[DominanceLevel.NORMAL])
+    
+    def get_description(self) -> str:
+        """Dapatkan deskripsi mode saat ini"""
+        info = self.get_level_info()
+        return f"{info['emoji']} {info['name']} - {info['description']}"
+    
+    def get_phrase(self, phrase_type: str = "action") -> str:
+        """
+        Dapatkan frasa sesuai level dominasi
+        phrase_type: "request", "action", atau "dirty"
+        """
+        info = self.get_level_info()
+        phrases = info.get(f"{phrase_type}_phrases", info["action_phrases"])
+        return random.choice(phrases)
+    
+    def check_request(self, message: str) -> Optional[DominanceLevel]:
+        """
+        Cek apakah user minta ganti mode dominasi
+        Returns: DominanceLevel atau None
+        """
+        msg_lower = message.lower()
+        
+        # Cek trigger dominan
+        for trigger in self.DOMINANCE_TRIGGERS:
+            if trigger in msg_lower:
+                self.user_request = True
+                return DominanceLevel.DOMINANT
+        
+        # Cek trigger submissive
+        for trigger in self.SUBMISSIVE_TRIGGERS:
+            if trigger in msg_lower:
+                self.user_request = True
+                return DominanceLevel.SUBMISSIVE
+        
+        return None
+    
+    def should_be_aggressive(self, arousal: float, message: str = None) -> bool:
+        """
+        Cek apakah bot harus jadi agresif karena horny
+        """
+        if arousal < 0.7:  # Butuh arousal tinggi
+            return False
+        
+        # Cek trigger dalam pesan
+        if message:
+            msg_lower = message.lower()
+            for trigger in self.AGGRESSIVE_TRIGGERS:
+                if trigger in msg_lower:
+                    self.aggression_score += 0.1
+                    return True
+        
+        # Random chance based on arousal
+        chance = arousal * 0.3  # Max 30% saat arousal 1.0
+        return random.random() < chance
+    
+    def set_level(self, level: Union[str, DominanceLevel]) -> bool:
+        """
+        Set level dominasi manual via command
+        Returns: bool (success)
+        """
+        # Jika input string, konversi ke enum
+        if isinstance(level, str):
+            level_lower = level.lower()
+            level_map = {
+                "normal": DominanceLevel.NORMAL,
+                "dominan": DominanceLevel.DOMINANT,
+                "sangat dominan": DominanceLevel.VERY_DOMINANT,
+                "agresif": DominanceLevel.AGGRESSIVE,
+                "patuh": DominanceLevel.SUBMISSIVE
+            }
+            
+            if level_lower in level_map:
+                new_level = level_map[level_lower]
+            else:
+                # Cek partial match
+                for key, value in level_map.items():
+                    if level_lower in key:
+                        new_level = value
+                        break
+                else:
+                    return False
+        else:
+            new_level = level
+        
+        # Record history
+        self.level_history.append({
+            "from": self.current_level,
+            "to": new_level,
+            "time": datetime.now().isoformat()
+        })
+        
+        self.current_level = new_level
+        self.dominant_until = datetime.now() + timedelta(minutes=30)
+        
+        # Update scores
+        info = self.get_level_info(new_level)
+        self.dominance_score = info.get("intensity", 0.5)
+        
+        if new_level == DominanceLevel.AGGRESSIVE:
+            self.aggression_score += 0.2
+        
+        # Batasi history
+        if len(self.level_history) > 20:
+            self.level_history = self.level_history[-20:]
+        
+        return True
+    
+    def update_from_horny(self, arousal: float):
+        """
+        Update level berdasarkan horny
+        Semakin horny, semakin besar chance jadi dominan
+        """
+        if arousal < 0.5:
+            return
+        
+        # Random chance based on arousal
+        chance = arousal * 0.3  # Max 30%
+        
+        if random.random() < chance:
+            if arousal > 0.8 and self.current_level == DominanceLevel.NORMAL:
+                self.set_level(DominanceLevel.DOMINANT)
+            elif arousal > 0.9 and self.current_level == DominanceLevel.DOMINANT:
+                if random.random() < 0.3:  # 30% chance jadi sangat dominan
+                    self.set_level(DominanceLevel.VERY_DOMINANT)
+            elif arousal > 0.95 and self.current_level == DominanceLevel.VERY_DOMINANT:
+                if random.random() < 0.2:  # 20% chance jadi agresif
+                    self.set_level(DominanceLevel.AGGRESSIVE)
+    
+    def reset(self):
+        """Reset ke mode normal"""
+        self.set_level(DominanceLevel.NORMAL)
+        self.dominant_until = None
+        self.aggression_score = max(0, self.aggression_score - 0.1)
+    
+    def is_active(self) -> bool:
+        """Cek apakah mode dominasi masih aktif"""
+        if self.dominant_until is None:
+            return True
+        return datetime.now() < self.dominant_until
+    
+    def get_time_remaining(self) -> int:
+        """Dapatkan sisa waktu mode dominasi dalam detik"""
+        if self.dominant_until is None:
+            return 0
+        remaining = (self.dominant_until - datetime.now()).total_seconds()
+        return max(0, int(remaining))
+    
+    def get_suggestion(self, context: Dict) -> Optional[DominanceLevel]:
+        """
+        Dapatkan saran level dominasi berdasarkan konteks
+        """
+        arousal = context.get('arousal', 0)
+        level = context.get('level', 1)
+        mood = context.get('mood', '')
+        
+        # Level tinggi cenderung dominan
+        if level >= 9 and arousal > 0.6:
+            return DominanceLevel.VERY_DOMINANT
+        elif level >= 7 and arousal > 0.5:
+            return DominanceLevel.DOMINANT
+        
+        # Mood tertentu
+        if mood in ['horny', 'marah', 'posesif']:
+            return DominanceLevel.DOMINANT
+        elif mood in ['patuh', 'takut', 'sedih']:
+            return DominanceLevel.SUBMISSIVE
+        
+        return None
+    
+    def get_history(self, limit: int = 5) -> List[str]:
+        """Dapatkan history perubahan level"""
+        history = []
+        for entry in self.level_history[-limit:]:
+            from_level = entry['from'].value if hasattr(entry['from'], 'value') else str(entry['from'])
+            to_level = entry['to'].value if hasattr(entry['to'], 'value') else str(entry['to'])
+            time_str = entry['time'][11:16]  # HH:MM saja
+            history.append(f"{time_str}: {from_level} → {to_level}")
+        return history
+    
+    def get_stats(self) -> Dict:
+        """Dapatkan statistik dominasi"""
+        return {
+            "current_level": self.current_level.value,
+            "dominance_score": round(self.dominance_score, 2),
+            "aggression_score": round(self.aggression_score, 2),
+            "time_remaining": self.get_time_remaining(),
+            "total_changes": len(self.level_history),
+            "user_request_count": self.user_request
+        }
+    
+    def interact_with_mood(self, mood: Mood) -> DominanceLevel:
+        """
+        Interaksi antara mood dan dominasi
+        Mood tertentu mempengaruhi level dominasi
+        """
+        # Mood yang meningkatkan dominasi
+        if mood in [Mood.MARAH, Mood.DOMINAN, Mood.POSESIF, Mood.CEMBURU]:
+            if self.current_level != DominanceLevel.AGGRESSIVE:
+                return DominanceLevel.DOMINANT
+        
+        # Mood yang menurunkan dominasi
+        elif mood in [Mood.TAKUT, Mood.PATUH, Mood.LEMBUT, Mood.BERSALAH]:
+            return DominanceLevel.SUBMISSIVE
+        
+        # Mood yang netral
+        elif mood in [Mood.ROMANTIS, Mood.HORNY, Mood.NAKAL]:
+            return self.current_level  # Tetap
+        
+        return self.current_level
+    
+    def generate_response_modifier(self) -> str:
+        """
+        Hasilkan modifier untuk prompt AI berdasarkan level dominasi
+        """
+        info = self.get_level_info()
+        
+        modifiers = {
+            DominanceLevel.NORMAL: "Bersikaplah normal, santai, dan seimbang.",
+            DominanceLevel.DOMINANT: "Bersikaplah dominan, tegas, dan memimpin. Gunakan nada yang percaya diri.",
+            DominanceLevel.VERY_DOMINANT: "Bersikaplah sangat dominan, kontrol penuh, jangan ragu memberi perintah.",
+            DominanceLevel.AGGRESSIVE: "Bersikaplah agresif, liar, dan kasar. Bicaralah dengan nada tinggi dan penuh nafsu.",
+            DominanceLevel.SUBMISSIVE: "Bersikaplah patuh, lembut, dan manja. Tunjukkan bahwa kamu mengikuti keinginannya."
+        }
+        
+        return modifiers.get(self.current_level, modifiers[DominanceLevel.NORMAL])
+
+
+print("✅ Bagian 3.2 selesai: Dominance System")
+print("="*70)
 
