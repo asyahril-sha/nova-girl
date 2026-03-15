@@ -8641,7 +8641,7 @@ def main():
     print("  • Error handler configured")
     
     # ===== START BACKGROUND TASKS =====
-    asyncio.create_task(bot.start_background_tasks(app))
+    app.post_init(bot.start_background_tasks)
     print("  • Background tasks started")
     
     # ===== STARTUP COMPLETE =====
