@@ -6784,13 +6784,6 @@ class GadisUltimateV60:
             return (datetime.now() - self.user_silence_tracker[user_id]).total_seconds()
         return 0
         
-# ===================== BAB 9: MAIN BOT CLASS - COMMANDS =====================
-# Bagian 9.1: Start & Role Selection
-# Bagian 9.2: Status & Dominance Commands
-# Bagian 9.3: Session Control Commands
-
-    # ===== START COMMAND =====
-    
     async def start_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         """Memulai hubungan baru dengan bot"""
         user_id = update.effective_user.id
