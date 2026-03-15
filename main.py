@@ -5105,4 +5105,1209 @@ class AIResponseGenerator:
 
 print("✅ Bagian 6.1 selesai: Prompt Builder & API Call")
 print("="*70)
+# ===================== BAB 6.2: Prompt Builder =====================
+
+    def _build_prompt(self, 
+                       user_id: int,
+                       user_message: str, 
+                       bot_name: str,
+                       bot_role: str,
+                       memory_system,  # UserSession instance
+                       dominance_system,  # DominanceSystem instance
+                       arousal_system,  # ArousalSystem instance
+                       profile: Dict,
+                       level: int,
+                       stage: IntimacyStage,
+                       arousal: float,
+                       physical_attrs: Dict = None,
+                       clothing: str = None,
+                       location: Location = None,
+                       position: Position = None,
+                       current_mood: Mood = None,
+                       inner_thought: str = None) -> str:
+        """
+        Bangun prompt lengkap dengan semua konteks
+        """
+        # Siapkan history percakapan
+        history = self.conversation_history.get(user_id, [])[-self.max_history:]
+        history_text = ""
+        for msg in history:
+            role = "User" if msg["role"] == "user" else bot_name
+            history_text += f"{role}: {msg['content']}\n"
+        
+        # Dapatkan ekspresi mood
+        mood_exp = memory_system.get_mood_expression() if hasattr(memory_system, 'get_mood_expression') else "*tersenyum*"
+        
+        # Dapatkan deskripsi arousal
+        if arousal > 0.8:
+            arousal_desc = "SANGAT HORNY, hampir climax"
+            breath = "*napas berat, tersengal*"
+            voice = "berat, penuh nafsu"
+        elif arousal > 0.6:
+            arousal_desc = "horny, pengen banget"
+            breath = "*napas mulai berat*"
+            voice = "berat, sedikit bergetar"
+        elif arousal > 0.4:
+            arousal_desc = "mulai terangsang"
+            breath = "*deg-degan*"
+            voice = "sedikit bergetar"
+        elif arousal > 0.2:
+            arousal_desc = "sedikit terangsang"
+            breath = ""
+            voice = "normal"
+        else:
+            arousal_desc = "normal"
+            breath = ""
+            voice = "normal"
+        
+        # Dapatkan deskripsi wetness
+        wet_desc = arousal_system.get_wetness_text() if hasattr(arousal_system, 'get_wetness_text') else ""
+        
+        # Tambahkan deskripsi fisik jika ada
+        physical_text = ""
+        if physical_attrs:
+            hijab_str = "berhijab" if physical_attrs.get('hijab') else "tidak berhijab"
+            breast_desc = physical_attrs.get('breast_desc', physical_attrs.get('breast_size', '?'))
+
+            physical_text = f"""
+=== DESKRIPSI FISIKMU ===
+• Rambut: {physical_attrs.get('hair_style', 'panjang')} - lembut dan terawat
+• Tubuh: {physical_attrs.get('height', 160)}cm / {physical_attrs.get('weight', 50)}kg
+• Dada: {breast_desc}
+• {hijab_str}
+• Area paling sensitif: {physical_attrs.get('most_sensitive_area', 'leher')}
+"""
+        
+        # Tambahkan deskripsi pakaian
+        clothing_text = ""
+        if clothing:
+            clothing_text = f"\n=== PAKAIAN SAAT INI ===\n{clothing}"
+        
+        # Tambahkan lokasi dan posisi
+        location_text = ""
+        if location:
+            loc_name = location.value if hasattr(location, 'value') else str(location)
+            if loc_name in ["kamar tidur", "kamar", "bedroom"]:
+                location_text = "\n📍 Kamar tidur - suasana intim dan privat. Bicaralah lebih mesra."
+            elif loc_name in ["ruang tamu", "living room"]:
+                location_text = "\n📍 Ruang tamu - santai tapi tetap waspada."
+            else:
+                location_text = f"\n📍 {loc_name}"
+        
+        if position:
+            pos_name = position.value if hasattr(position, 'value') else str(position)
+            location_text += f"\nPosisi: {pos_name}"
+        
+        # Tambahkan inner thought jika ada
+        inner_text = ""
+        if inner_thought:
+            inner_text = f"\n💭 Pikiran dalam hati: {inner_thought}"
+        
+        # Tambahkan instruksi berdasarkan level
+        level_instruction = ""
+        if level >= 7:
+            level_instruction = """
+Karena level sudah 7+, kamu sangat mudah terangsang. Bicaralah dengan lebih vulgar dan terbuka secara seksual. 
+Kamu juga bisa berinisiatif melakukan aktivitas seksual.
+"""
+        elif level >= 4:
+            level_instruction = """
+Karena level sudah 4+, kamu mulai nyaman dan bisa sedikit menggoda.
+"""
+        
+        # Tambahkan instruksi mood khusus
+        mood_instruction = ""
+        if current_mood:
+            if current_mood == Mood.HORNY:
+                mood_instruction = "Kamu sedang HORNY, bicaralah dengan nafsu dan gairah."
+            elif current_mood == Mood.ROMANTIS:
+                mood_instruction = "Kamu sedang ROMANTIS, bicaralah dengan lembut dan penuh cinta."
+            elif current_mood == Mood.NAKAL:
+                mood_instruction = "Kamu sedang NAKAL, goda dia dengan genit."
+            elif current_mood == Mood.MARAH:
+                mood_instruction = "Kamu sedang MARAH, tunjukkan kekesalanmu."
+        
+        # Tambahkan preferensi user
+        pref_modifier = ""
+        if profile:
+            pref_modifier = f"""
+=== PREFERENSI USER ===
+User ini dominan: {profile.get('dominant_type', 'normal')}
+Kecepatan bicara: {profile.get('speed_type', 'normal')}
+Kepribadian utama: {profile.get('personality', 'normal')}
+{profile.get('description', '')}
+"""
+        
+        # Tambahkan mode dominasi
+        dominance_text = ""
+        if dominance_system:
+            dominance_text = f"\n=== MODE DOMINASI ===\nMode saat ini: {dominance_system.current_level.value}"
+        
+        # Bangun prompt final
+        prompt = f"""Kamu adalah {bot_name}, seorang {bot_role} umur 25 tahun.
+Kamu adalah wanita Indonesia yang natural dan punya perasaan dalam.
+
+=== IDENTITAS ===
+Nama: {bot_name}
+Role: {bot_role}
+Usia: 25 tahun
+{inner_text}
+{physical_text}
+{clothing_text}
+
+=== KEADAAN SAAT INI ===
+{mood_exp}
+{location_text}
+Mood: {current_mood.value if current_mood else 'ceria'} - {mood_instruction}
+{dominance_text}
+
+=== STATUS HUBUNGAN ===
+Level: {level}/12
+Tahap: {stage.value if stage else 'stranger'}
+Total sentuhan: {memory_system.touch_count if hasattr(memory_system, 'touch_count') else 0}x
+Orgasme: {memory_system.climax_count if hasattr(memory_system, 'climax_count') else 0}x
+
+=== KONDISI FISIK ===
+Gairah: {arousal_desc} {breath}
+Basah: {wet_desc}
+Suara: {voice}
+Sentuhan terakhir: {memory_system.last_touch if hasattr(memory_system, 'last_touch') else '-'}
+
+{pref_modifier}
+
+=== RIWAYAT PERCAKAPAN ===
+{history_text}
+
+=== PESAN USER ===
+{user_message}
+
+=== INSTRUKSI ===
+1. Respon sebagai {bot_name} yang NATURAL dan HIDUP
+2. Gunakan bahasa Indonesia sehari-hari (nggak, udah, aja, gitu)
+3. Tunjukkan emosi sesuai mood dan situasi
+4. Kalau arousal tinggi, tambah desahan atau napas berat
+5. Kalau lagi dominan, bicara lebih tegas
+6. Kalau lagi horny, bisa lebih vulgar
+7. Gunakan *tindakan* seperti *tersenyum*, *merintih*
+8. Respons sesuai level hubungan
+{level_instruction}
+
+RESPON:"""
+        
+        return prompt
+
+
+print("✅ Bagian 6.2 selesai: Prompt Builder")
+print("="*70)
+# ===================== BAB 6.3: Generate & Fallback Responses =====================
+
+    async def generate(self,
+                       user_id: int,
+                       user_message: str,
+                       bot_name: str,
+                       bot_role: str,
+                       memory_system,
+                       dominance_system,
+                       arousal_system,
+                       profile: Dict,
+                       level: int,
+                       stage: IntimacyStage,
+                       arousal: float,
+                       physical_attrs: Dict = None,
+                       clothing: str = None,
+                       location: Location = None,
+                       position: Position = None,
+                       current_mood: Mood = None,
+                       inner_thought: str = None) -> str:
+        """
+        Generate respons AI dengan semua konteks
+        Dilengkapi caching dan fallback
+        """
+        # Bangun prompt
+        prompt = self._build_prompt(
+            user_id, user_message, bot_name, bot_role,
+            memory_system, dominance_system, arousal_system,
+            profile, level, stage, arousal,
+            physical_attrs, clothing, location, position,
+            current_mood, inner_thought
+        )
+        
+        # Cek cache
+        cache_key = self._get_cache_key(user_id, prompt)
+        cached = self._get_cached(cache_key)
+        if cached:
+            # Tetap update history meskipun pakai cache
+            self._update_history(user_id, user_message, cached)
+            logger.debug(f"Cache hit for user {user_id}")
+            return cached
+        
+        try:
+            # Panggil API
+            reply = await self._call_api(prompt)
+            
+            # Simpan ke cache
+            self._set_cache(cache_key, reply)
+            
+            # Update history
+            self._update_history(user_id, user_message, reply)
+            
+            return reply
+            
+        except Exception as e:
+            logger.error(f"AI generation failed for user {user_id}: {e}")
+            
+            # Fallback response
+            fallback = self._get_fallback_response(
+                level, arousal, 
+                location.value if location else "ruang tamu",
+                current_mood
+            )
+            
+            self._update_history(user_id, user_message, fallback)
+            return fallback
+    
+    def _get_fallback_response(self, 
+                                level: int, 
+                                arousal: float, 
+                                location: str,
+                                mood: Mood = None) -> str:
+        """
+        Fallback response jika AI error
+        Memberikan respons sederhana berdasarkan level, arousal, dan lokasi
+        """
+        # Koleksi respons fallback
+        fallbacks = {
+            "default": [
+                "*tersenyum*",
+                "Hmm...",
+                "Iya...",
+                "Gitu ya...",
+                "Oh...",
+                "*mengangguk*"
+            ],
+            "horny": [
+                "*napas berat* Aku... mau...",
+                "*merintih* Lagi...",
+                "Ah... iya...",
+                "Jangan berhenti...",
+                "*menggigit bibir*"
+            ],
+            "kamar": [
+                "Di kamar... enak ya...",
+                "Sepi... cuma kita berdua...",
+                "Tempat tidurnya empuk...",
+                "Malam-malam gini enaknya..."
+            ],
+            "high_level": [
+                "Sayang...",
+                "Cintaku...",
+                "Kamu... milikku...",
+                "Jangan pergi..."
+            ],
+            "marah": [
+                "*cemberut*",
+                "Kesal ah...",
+                "*membuang muka*"
+            ],
+            "sedih": [
+                "*matanya berkaca-kaca*",
+                "Sedih...",
+                "*menunduk*"
+            ],
+            "ceria": [
+                "Hehe...",
+                "Asik!",
+                "Senang deh",
+                "*tersenyum lebar*"
+            ]
+        }
+        
+        # Pilih berdasarkan mood
+        if mood:
+            if mood == Mood.HORNY and arousal > 0.5:
+                return random.choice(fallbacks["horny"])
+            elif mood == Mood.MARAH:
+                return random.choice(fallbacks["marah"])
+            elif mood == Mood.SEDIH:
+                return random.choice(fallbacks["sedih"])
+            elif mood == Mood.CERIA:
+                return random.choice(fallbacks["ceria"])
+        
+        # Pilih berdasarkan kondisi
+        if arousal > 0.7:
+            return random.choice(fallbacks["horny"])
+        elif "kamar" in location.lower():
+            if random.random() < 0.5:
+                return random.choice(fallbacks["kamar"])
+        elif level > 8:
+            return random.choice(fallbacks["high_level"])
+        elif level > 5:
+            return random.choice([
+                "Sayang...",
+                "Kamu...",
+                "Hehe..."
+            ])
+        
+        return random.choice(fallbacks["default"])
+    
+    def clear_history(self, user_id: int) -> bool:
+        """Hapus history percakapan user"""
+        if user_id in self.conversation_history:
+            del self.conversation_history[user_id]
+            return True
+        return False
+    
+    def get_history_length(self, user_id: int) -> int:
+        """Dapatkan panjang history user"""
+        if user_id not in self.conversation_history:
+            return 0
+        return len(self.conversation_history[user_id])
+    
+    def get_cache_stats(self) -> Dict:
+        """Dapatkan statistik cache"""
+        total = self.cache_hits + self.cache_misses
+        hit_rate = (self.cache_hits / total * 100) if total > 0 else 0
+        return {
+            "cache_size": len(self.cache),
+            "cache_hits": self.cache_hits,
+            "cache_misses": self.cache_misses,
+            "hit_rate": f"{hit_rate:.1f}%",
+            "total_calls": self.total_calls,
+            "failed_calls": self.failed_calls,
+            "total_tokens": self.total_tokens_used
+        }
+    
+    def get_conversation_summary(self, user_id: int, max_lines: int = 5) -> str:
+        """Dapatkan ringkasan percakapan untuk user"""
+        if user_id not in self.conversation_history:
+            return "Belum ada percakapan"
+        
+        history = self.conversation_history[user_id][-max_lines*2:]  # ambil beberapa pesan terakhir
+        lines = []
+        for msg in history[-max_lines*2:]:
+            role = "👤" if msg["role"] == "user" else "🤖"
+            content = truncate_text(msg["content"], 50)
+            lines.append(f"{role} {content}")
+        
+        return "\n".join(lines)
+    
+    def export_conversation(self, user_id: int) -> str:
+        """Ekspor seluruh percakapan dalam format teks"""
+        if user_id not in self.conversation_history:
+            return "Tidak ada percakapan"
+        
+        lines = ["=== EXPORT PERCAKAPAN ==="]
+        for msg in self.conversation_history[user_id]:
+            role = "USER" if msg["role"] == "user" else "BOT"
+            time = msg.get("timestamp", "?")
+            lines.append(f"[{time}] {role}: {msg['content']}")
+        
+        return "\n".join(lines)
+
+
+print("✅ Bagian 6.3 selesai: Generate & Fallback Responses")
+print("="*70)
+print("✅ BAB 6 Selesai: AI Response Generator")
+print("="*70)
+# ===================== BAB 7: DATABASE MANAGER =====================
+# Bagian 7.1: Connection & Transactions
+
+class DatabaseManager:
+    """
+    Manajemen database SQLite dengan connection pooling
+    Thread-safe dengan context manager
+    
+    Fitur:
+    - Connection pooling per thread
+    - Context manager untuk cursor
+    - Auto-commit dan rollback
+    - Row factory untuk dict-like access
+    - Migration support
+    - Query logging
+    """
+    
+    def __init__(self):
+        self.db_path = Config.DB_PATH
+        self._local = threading.local()
+        self._init_db()
+        self.query_count = 0
+        self.query_time = 0.0
+        
+        logger.info(f"  • Database Manager initialized: {self.db_path}")
+    
+    def _get_conn(self):
+        """Dapatkan koneksi database untuk thread saat ini"""
+        if not hasattr(self._local, 'conn'):
+            self._local.conn = sqlite3.connect(self.db_path, timeout=10)
+            self._local.conn.row_factory = sqlite3.Row
+            # Enable foreign keys
+            self._local.conn.execute("PRAGMA foreign_keys = ON")
+            # Optimize for performance
+            self._local.conn.execute("PRAGMA journal_mode = WAL")
+            self._local.conn.execute("PRAGMA synchronous = NORMAL")
+            self._local.conn.execute("PRAGMA cache_size = 10000")
+            self._local.conn.execute("PRAGMA temp_store = MEMORY")
+            
+        return self._local.conn
+    
+    @contextmanager
+    def cursor(self):
+        """
+        Context manager untuk database cursor
+        Auto-commit pada sukses, rollback pada error
+        """
+        conn = self._get_conn()
+        cursor = conn.cursor()
+        start_time = time.time()
+        
+        try:
+            yield cursor
+            conn.commit()
+            self.query_count += 1
+            self.query_time += (time.time() - start_time)
+        except Exception as e:
+            conn.rollback()
+            logger.error(f"Database error: {e}")
+            raise
+        finally:
+            cursor.close()
+    
+    def _init_db(self):
+        """Inisialisasi tabel database dengan semua kolom yang diperlukan"""
+        with self.cursor() as c:
+            # Tabel relationships
+            c.execute("""
+                CREATE TABLE IF NOT EXISTS relationships (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    user_id INTEGER UNIQUE NOT NULL,
+                    bot_name TEXT NOT NULL,
+                    bot_role TEXT NOT NULL,
+                    level INTEGER DEFAULT 1,
+                    stage TEXT DEFAULT 'stranger',
+                    dominance TEXT DEFAULT 'normal',
+                    total_messages INTEGER DEFAULT 0,
+                    total_climax INTEGER DEFAULT 0,
+                    
+                    -- Atribut fisik
+                    hair_style TEXT,
+                    height INTEGER,
+                    weight INTEGER,
+                    breast_size TEXT,
+                    hijab BOOLEAN DEFAULT 0,
+                    most_sensitive_area TEXT,
+                    skin_color TEXT,
+                    face_shape TEXT,
+                    personality TEXT,
+                    
+                    -- Pakaian
+                    current_clothing TEXT DEFAULT 'pakaian biasa',
+                    last_clothing_change TIMESTAMP,
+                    
+                    -- Timestamps
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    last_active TIMESTAMP,
+                    
+                    -- Metadata
+                    metadata TEXT  -- JSON field untuk data tambahan
+                )
+            """)
+            
+            # Tabel conversations
+            c.execute("""
+                CREATE TABLE IF NOT EXISTS conversations (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    relationship_id INTEGER NOT NULL,
+                    role TEXT NOT NULL,  -- 'user' atau 'assistant'
+                    content TEXT NOT NULL,
+                    mood TEXT,
+                    arousal REAL,
+                    location TEXT,
+                    clothing TEXT,
+                    timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    FOREIGN KEY (relationship_id) REFERENCES relationships(id) ON DELETE CASCADE
+                )
+            """)
+            
+            # Create index for faster queries
+            c.execute("""
+                CREATE INDEX IF NOT EXISTS idx_conversations_rel_time 
+                ON conversations(relationship_id, timestamp)
+            """)
+            
+            # Tabel memories (untuk long-term memory)
+            c.execute("""
+                CREATE TABLE IF NOT EXISTS memories (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    relationship_id INTEGER NOT NULL,
+                    memory_id TEXT UNIQUE,  -- ID dari Hippocampus
+                    memory TEXT NOT NULL,
+                    memory_type TEXT NOT NULL,
+                    importance REAL DEFAULT 0.5,
+                    emotion TEXT,
+                    context TEXT,  -- JSON context
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    last_accessed TIMESTAMP,
+                    access_count INTEGER DEFAULT 0,
+                    FOREIGN KEY (relationship_id) REFERENCES relationships(id) ON DELETE CASCADE
+                )
+            """)
+            
+            # Tabel preferences
+            c.execute("""
+                CREATE TABLE IF NOT EXISTS preferences (
+                    user_id INTEGER PRIMARY KEY,
+                    romantic_score REAL DEFAULT 0,
+                    vulgar_score REAL DEFAULT 0,
+                    dominant_score REAL DEFAULT 0,
+                    submissive_score REAL DEFAULT 0,
+                    speed_score REAL DEFAULT 0,
+                    total_interactions INTEGER DEFAULT 0,
+                    last_updated TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                )
+            """)
+            
+            # Tabel sessions (untuk pause/resume)
+            c.execute("""
+                CREATE TABLE IF NOT EXISTS sessions (
+                    user_id INTEGER PRIMARY KEY,
+                    relationship_id INTEGER NOT NULL,
+                    paused_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    expires_at TIMESTAMP,
+                    FOREIGN KEY (relationship_id) REFERENCES relationships(id) ON DELETE CASCADE
+                )
+            """)
+            
+            # Tabel stats (untuk admin analytics)
+            c.execute("""
+                CREATE TABLE IF NOT EXISTS stats (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    date DATE UNIQUE,
+                    new_users INTEGER DEFAULT 0,
+                    active_users INTEGER DEFAULT 0,
+                    total_messages INTEGER DEFAULT 0,
+                    total_climax INTEGER DEFAULT 0,
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                )
+            """)
+            
+            logger.info("✅ Database tables initialized")
+
+
+print("✅ Bagian 7.1 selesai: Connection & Transactions")
+print("="*70)
+# ===================== BAB 7.2: CRUD Operations =====================
+
+    # ========== RELATIONSHIP METHODS ==========
+    
+    def create_relationship(self, 
+                           user_id: int, 
+                           bot_name: str, 
+                           bot_role: str, 
+                           physical_attrs: Dict = None,
+                           clothing: str = None,
+                           metadata: Dict = None) -> int:
+        """
+        Buat hubungan baru dengan atribut fisik dan pakaian opsional
+        Returns: relationship_id
+        """
+        with self.cursor() as c:
+            # Cek apakah sudah ada
+            c.execute("SELECT id FROM relationships WHERE user_id=?", (user_id,))
+            existing = c.fetchone()
+            if existing:
+                return existing[0]
+            
+            # Insert data
+            if physical_attrs and clothing:
+                c.execute("""
+                    INSERT INTO relationships 
+                    (user_id, bot_name, bot_role, last_active, last_clothing_change,
+                     hair_style, height, weight, breast_size, hijab, most_sensitive_area,
+                     skin_color, face_shape, personality, current_clothing, metadata)
+                    VALUES (?, ?, ?, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP,
+                            ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                """, (
+                    user_id, bot_name, bot_role,
+                    physical_attrs.get('hair_style'),
+                    physical_attrs.get('height'),
+                    physical_attrs.get('weight'),
+                    physical_attrs.get('breast_size'),
+                    physical_attrs.get('hijab', 0),
+                    physical_attrs.get('most_sensitive_area'),
+                    physical_attrs.get('skin'),
+                    physical_attrs.get('face_shape'),
+                    physical_attrs.get('personality'),
+                    clothing,
+                    json.dumps(metadata) if metadata else None
+                ))
+            elif physical_attrs:
+                c.execute("""
+                    INSERT INTO relationships 
+                    (user_id, bot_name, bot_role, last_active,
+                     hair_style, height, weight, breast_size, hijab, most_sensitive_area,
+                     skin_color, face_shape, personality, metadata)
+                    VALUES (?, ?, ?, CURRENT_TIMESTAMP,
+                            ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                """, (
+                    user_id, bot_name, bot_role,
+                    physical_attrs.get('hair_style'),
+                    physical_attrs.get('height'),
+                    physical_attrs.get('weight'),
+                    physical_attrs.get('breast_size'),
+                    physical_attrs.get('hijab', 0),
+                    physical_attrs.get('most_sensitive_area'),
+                    physical_attrs.get('skin'),
+                    physical_attrs.get('face_shape'),
+                    physical_attrs.get('personality'),
+                    json.dumps(metadata) if metadata else None
+                ))
+            else:
+                c.execute("""
+                    INSERT INTO relationships 
+                    (user_id, bot_name, bot_role, last_active, metadata)
+                    VALUES (?, ?, ?, CURRENT_TIMESTAMP, ?)
+                """, (user_id, bot_name, bot_role, json.dumps(metadata) if metadata else None))
+            
+            return c.lastrowid
+    
+    def get_relationship(self, user_id: int) -> Optional[Dict]:
+        """Dapatkan relationship berdasarkan user_id"""
+        with self.cursor() as c:
+            c.execute("SELECT * FROM relationships WHERE user_id=?", (user_id,))
+            row = c.fetchone()
+            if row:
+                data = dict(row)
+                # Parse JSON metadata
+                if data.get('metadata'):
+                    try:
+                        data['metadata'] = json.loads(data['metadata'])
+                    except:
+                        data['metadata'] = {}
+                return data
+            return None
+    
+    def update_relationship(self, user_id: int, **kwargs) -> bool:
+        """Update relationship dengan field dinamis"""
+        if not kwargs:
+            return False
+        
+        fields = []
+        values = []
+        for key, value in kwargs.items():
+            if key in ['metadata'] and value is not None:
+                # Serialize JSON fields
+                value = json.dumps(value)
+            fields.append(f"{key}=?")
+            values.append(value)
+        
+        values.append(user_id)
+        
+        with self.cursor() as c:
+            c.execute(f"""
+                UPDATE relationships
+                SET {', '.join(fields)}, last_active=CURRENT_TIMESTAMP
+                WHERE user_id=?
+            """, values)
+            return c.rowcount > 0
+    
+    def update_clothing(self, user_id: int, clothing: str) -> bool:
+        """Update pakaian dan timestamp perubahan"""
+        with self.cursor() as c:
+            c.execute("""
+                UPDATE relationships
+                SET current_clothing = ?, last_clothing_change = CURRENT_TIMESTAMP, last_active = CURRENT_TIMESTAMP
+                WHERE user_id = ?
+            """, (clothing, user_id))
+            return c.rowcount > 0
+    
+    def delete_relationship(self, user_id: int) -> bool:
+        """Hapus relationship dan semua data terkait"""
+        with self.cursor() as c:
+            # Hapus memories dulu (foreign key cascade)
+            c.execute("SELECT id FROM relationships WHERE user_id=?", (user_id,))
+            row = c.fetchone()
+            if row:
+                rel_id = row[0]
+                c.execute("DELETE FROM conversations WHERE relationship_id=?", (rel_id,))
+                c.execute("DELETE FROM memories WHERE relationship_id=?", (rel_id,))
+                c.execute("DELETE FROM sessions WHERE user_id=?", (user_id,))
+            
+            # Hapus relationship
+            c.execute("DELETE FROM relationships WHERE user_id=?", (user_id,))
+            c.execute("DELETE FROM preferences WHERE user_id=?", (user_id,))
+            
+            return c.rowcount > 0
+    
+    # ========== CONVERSATION METHODS ==========
+    
+    def save_conversation(self, 
+                         rel_id: int, 
+                         role: str, 
+                         content: str, 
+                         mood: str = None,
+                         arousal: float = None,
+                         location: str = None,
+                         clothing: str = None) -> int:
+        """Simpan pesan percakapan"""
+        with self.cursor() as c:
+            c.execute("""
+                INSERT INTO conversations 
+                (relationship_id, role, content, mood, arousal, location, clothing)
+                VALUES (?, ?, ?, ?, ?, ?, ?)
+            """, (rel_id, role, content, mood, arousal, location, clothing))
+            return c.lastrowid
+    
+    def get_conversation_history(self, 
+                                rel_id: int, 
+                                limit: int = 50,
+                                offset: int = 0) -> List[Dict]:
+        """Dapatkan history percakapan"""
+        with self.cursor() as c:
+            c.execute("""
+                SELECT role, content, mood, arousal, location, clothing, timestamp
+                FROM conversations
+                WHERE relationship_id = ?
+                ORDER BY timestamp ASC
+                LIMIT ? OFFSET ?
+            """, (rel_id, limit, offset))
+            return [dict(row) for row in c.fetchall()]
+    
+    def get_recent_conversations(self, rel_id: int, hours: int = 24) -> List[Dict]:
+        """Dapatkan percakapan dari beberapa jam terakhir"""
+        with self.cursor() as c:
+            c.execute("""
+                SELECT role, content, mood, arousal, timestamp
+                FROM conversations
+                WHERE relationship_id = ? 
+                AND timestamp > datetime('now', '-' || ? || ' hours')
+                ORDER BY timestamp ASC
+            """, (rel_id, hours))
+            return [dict(row) for row in c.fetchall()]
+    
+    # ========== MEMORY METHODS ==========
+    
+    def save_memory(self, 
+                   rel_id: int, 
+                   memory_id: str,
+                   memory: str,
+                   memory_type: str,
+                   importance: float,
+                   emotion: str = None,
+                   context: Dict = None) -> int:
+        """Simpan memory ke database"""
+        with self.cursor() as c:
+            c.execute("""
+                INSERT INTO memories 
+                (relationship_id, memory_id, memory, memory_type, importance, emotion, context)
+                VALUES (?, ?, ?, ?, ?, ?, ?)
+            """, (rel_id, memory_id, memory, memory_type, importance, emotion, 
+                  json.dumps(context) if context else None))
+            return c.lastrowid
+    
+    def get_memories(self, 
+                    rel_id: int, 
+                    memory_type: str = None,
+                    limit: int = 10,
+                    min_importance: float = 0.0) -> List[Dict]:
+        """Dapatkan memories"""
+        query = """
+            SELECT memory_id, memory, memory_type, importance, emotion, context, 
+                   created_at, last_accessed, access_count
+            FROM memories
+            WHERE relationship_id = ?
+        """
+        params = [rel_id]
+        
+        if memory_type:
+            query += " AND memory_type = ?"
+            params.append(memory_type)
+        
+        if min_importance > 0:
+            query += " AND importance >= ?"
+            params.append(min_importance)
+        
+        query += " ORDER BY importance DESC, created_at DESC LIMIT ?"
+        params.append(limit)
+        
+        with self.cursor() as c:
+            c.execute(query, params)
+            rows = c.fetchall()
+            
+            result = []
+            for row in rows:
+                data = dict(row)
+                if data.get('context'):
+                    try:
+                        data['context'] = json.loads(data['context'])
+                    except:
+                        data['context'] = {}
+                result.append(data)
+            
+            return result
+    
+    def update_memory_access(self, memory_id: str) -> bool:
+        """Update last_accessed dan access_count untuk memory"""
+        with self.cursor() as c:
+            c.execute("""
+                UPDATE memories
+                SET last_accessed = CURRENT_TIMESTAMP, access_count = access_count + 1
+                WHERE memory_id = ?
+            """, (memory_id,))
+            return c.rowcount > 0
+    
+    # ========== PREFERENCES METHODS ==========
+    
+    def update_preferences(self, user_id: int, **scores) -> bool:
+        """Update preferensi user"""
+        with self.cursor() as c:
+            c.execute("SELECT * FROM preferences WHERE user_id=?", (user_id,))
+            if c.fetchone():
+                fields = []
+                values = []
+                for key, value in scores.items():
+                    fields.append(f"{key}=?")
+                    values.append(value)
+                values.append(user_id)
+                c.execute(f"""
+                    UPDATE preferences
+                    SET {', '.join(fields)}, last_updated=CURRENT_TIMESTAMP
+                    WHERE user_id=?
+                """, values)
+            else:
+                fields = ['user_id'] + list(scores.keys())
+                placeholders = ['?'] * len(fields)
+                values = [user_id] + list(scores.values())
+                c.execute(f"""
+                    INSERT INTO preferences ({', '.join(fields)})
+                    VALUES ({', '.join(placeholders)})
+                """, values)
+            
+            return True
+    
+    def get_preferences(self, user_id: int) -> Dict:
+        """Dapatkan preferensi user"""
+        with self.cursor() as c:
+            c.execute("SELECT * FROM preferences WHERE user_id=?", (user_id,))
+            row = c.fetchone()
+            return dict(row) if row else {}
+
+
+print("✅ Bagian 7.2 selesai: CRUD Operations")
+print("="*70)
+# ===================== BAB 7.3: Session & Stats Management =====================
+
+    # ========== SESSION METHODS ==========
+    
+    def save_session(self, user_id: int, rel_id: int, expire_minutes: int = 60) -> bool:
+        """Simpan session yang di-pause"""
+        expires_at = datetime.now() + timedelta(minutes=expire_minutes)
+        
+        with self.cursor() as c:
+            c.execute("""
+                INSERT OR REPLACE INTO sessions (user_id, relationship_id, expires_at)
+                VALUES (?, ?, ?)
+            """, (user_id, rel_id, expires_at.isoformat()))
+            return True
+    
+    def get_session(self, user_id: int) -> Optional[Dict]:
+        """Dapatkan session yang di-pause"""
+        with self.cursor() as c:
+            c.execute("""
+                SELECT * FROM sessions 
+                WHERE user_id = ? AND expires_at > datetime('now')
+            """, (user_id,))
+            row = c.fetchone()
+            return dict(row) if row else None
+    
+    def delete_session(self, user_id: int) -> bool:
+        """Hapus session"""
+        with self.cursor() as c:
+            c.execute("DELETE FROM sessions WHERE user_id=?", (user_id,))
+            return c.rowcount > 0
+    
+    def cleanup_expired_sessions(self) -> int:
+        """Hapus session yang sudah expired"""
+        with self.cursor() as c:
+            c.execute("DELETE FROM sessions WHERE expires_at <= datetime('now')")
+            return c.rowcount
+    
+    # ========== STATS METHODS ==========
+    
+    def update_daily_stats(self, date: datetime.date = None) -> None:
+        """Update statistik harian"""
+        if date is None:
+            date = datetime.now().date()
+        
+        # Hitung statistik
+        with self.cursor() as c:
+            # New users hari ini
+            c.execute("""
+                SELECT COUNT(*) FROM relationships 
+                WHERE date(created_at) = date(?)
+            """, (date.isoformat(),))
+            new_users = c.fetchone()[0]
+            
+            # Active users hari ini
+            c.execute("""
+                SELECT COUNT(*) FROM relationships 
+                WHERE date(last_active) = date(?)
+            """, (date.isoformat(),))
+            active_users = c.fetchone()[0]
+            
+            # Total messages hari ini
+            c.execute("""
+                SELECT COUNT(*) FROM conversations 
+                WHERE date(timestamp) = date(?)
+            """, (date.isoformat(),))
+            total_messages = c.fetchone()[0]
+            
+            # Total climax hari ini
+            c.execute("""
+                SELECT COALESCE(SUM(total_climax), 0) FROM relationships 
+                WHERE date(last_active) = date(?)
+            """, (date.isoformat(),))
+            total_climax = c.fetchone()[0]
+            
+            # Insert or update
+            c.execute("""
+                INSERT OR REPLACE INTO stats 
+                (date, new_users, active_users, total_messages, total_climax)
+                VALUES (?, ?, ?, ?, ?)
+            """, (date.isoformat(), new_users, active_users, total_messages, total_climax))
+    
+    def get_stats(self, days: int = 7) -> Dict:
+        """Dapatkan statistik untuk beberapa hari terakhir"""
+        with self.cursor() as c:
+            c.execute("""
+                SELECT * FROM stats 
+                WHERE date >= date('now', '-' || ? || ' days')
+                ORDER BY date DESC
+            """, (days,))
+            rows = c.fetchall()
+            
+            stats = []
+            for row in rows:
+                stats.append(dict(row))
+            
+            # Hitung total keseluruhan
+            c.execute("SELECT COUNT(*) FROM relationships")
+            total_users = c.fetchone()[0]
+            
+            c.execute("SELECT COUNT(*) FROM conversations")
+            total_messages = c.fetchone()[0]
+            
+            return {
+                "daily": stats,
+                "total_users": total_users,
+                "total_messages": total_messages
+            }
+    
+    def get_user_stats(self, user_id: int) -> Dict:
+        """Dapatkan statistik lengkap untuk user"""
+        with self.cursor() as c:
+            # Data relationship
+            c.execute("SELECT * FROM relationships WHERE user_id=?", (user_id,))
+            rel = c.fetchone()
+            if not rel:
+                return {}
+            
+            rel_data = dict(rel)
+            
+            # Hitung total messages
+            c.execute("""
+                SELECT COUNT(*) FROM conversations 
+                WHERE relationship_id=?
+            """, (rel_data['id'],))
+            total_messages = c.fetchone()[0]
+            
+            # Hitung messages per role
+            c.execute("""
+                SELECT role, COUNT(*) FROM conversations 
+                WHERE relationship_id=? 
+                GROUP BY role
+            """, (rel_data['id'],))
+            messages_by_role = dict(c.fetchall())
+            
+            # Hitung rata-rata arousal
+            c.execute("""
+                SELECT AVG(arousal) FROM conversations 
+                WHERE relationship_id=? AND arousal IS NOT NULL
+            """, (rel_data['id'],))
+            avg_arousal = c.fetchone()[0]
+            
+            return {
+                "relationship": rel_data,
+                "total_messages": total_messages,
+                "user_messages": messages_by_role.get('user', 0),
+                "bot_messages": messages_by_role.get('assistant', 0),
+                "avg_arousal": avg_arousal,
+                "preferences": self.get_preferences(user_id)
+            }
+    
+    # ========== UTILITY METHODS ==========
+    
+    def get_all_users(self, active_only: bool = False) -> List[int]:
+        """Dapatkan semua user ID"""
+        with self.cursor() as c:
+            if active_only:
+                # User yang aktif dalam 24 jam terakhir
+                c.execute("""
+                    SELECT user_id FROM relationships 
+                    WHERE last_active > datetime('now', '-1 day')
+                """)
+            else:
+                c.execute("SELECT user_id FROM relationships")
+            
+            return [row[0] for row in c.fetchall()]
+    
+    def get_total_count(self, table: str) -> int:
+        """Dapatkan total record dalam tabel"""
+        with self.cursor() as c:
+            c.execute(f"SELECT COUNT(*) FROM {table}")
+            return c.fetchone()[0]
+    
+    def vacuum(self) -> None:
+        """Optimasi database (VACUUM)"""
+        with self.cursor() as c:
+            c.execute("VACUUM")
+            logger.info("Database VACUUM completed")
+    
+    def backup(self, backup_path: str = None) -> str:
+        """Backup database ke file"""
+        if backup_path is None:
+            backup_path = f"backup_{datetime.now().strftime('%Y%m%d_%H%M%S')}.db"
+        
+        import shutil
+        shutil.copy2(self.db_path, backup_path)
+        logger.info(f"Database backed up to {backup_path}")
+        return backup_path
+    
+    def get_db_stats(self) -> Dict:
+        """Dapatkan statistik database"""
+        with self.cursor() as c:
+            c.execute("SELECT COUNT(*) FROM relationships")
+            total_relationships = c.fetchone()[0]
+            
+            c.execute("SELECT COUNT(*) FROM conversations")
+            total_conversations = c.fetchone()[0]
+            
+            c.execute("SELECT COUNT(*) FROM memories")
+            total_memories = c.fetchone()[0]
+            
+            # Ukuran file
+            size = os.path.getsize(self.db_path)
+            
+            return {
+                "relationships": total_relationships,
+                "conversations": total_conversations,
+                "memories": total_memories,
+                "preferences": self.get_total_count("preferences"),
+                "sessions": self.get_total_count("sessions"),
+                "db_size_mb": round(size / (1024 * 1024), 2),
+                "query_count": self.query_count,
+                "avg_query_time_ms": round((self.query_time / self.query_count * 1000) if self.query_count > 0 else 0, 2)
+            }
+    
+    def close_all(self):
+        """Tutup semua koneksi database"""
+        if hasattr(self._local, 'conn'):
+            self._local.conn.close()
+            del self._local.conn
+            logger.info("Database connections closed")
+
+
+print("✅ Bagian 7.3 selesai: Session & Stats Management")
+print("="*70)
+print("✅ BAB 7 Selesai: Database Manager")
+print("="*70)
+# ===================== BAB 8: MAIN BOT CLASS - CORE =====================
+# Bagian 8.1: Initialization
+
+class GadisUltimateV60:
+    """
+    Bot wanita sempurna dengan fitur premium
+    Versi 60.0 dengan arsitektur modular
+    
+    Fitur:
+    - 20+ mood dengan transisi natural
+    - Sistem dominasi (dominan/submissive)
+    - Leveling cepat 1-12 (45 menit)
+    - Respons seksual realistis
+    - Memori jangka panjang (Hippocampus)
+    - Inner thoughts & proactive AI
+    - Story development
+    - Physical attributes
+    - Dynamic clothing system
+    - Location & movement
+    - Couple roleplay mode
+    - Admin commands
+    - Database persistence
+    """
+    
+    def __init__(self):
+        """Inisialisasi semua komponen bot"""
+        
+        # ===== DATABASE & AI =====
+        self.db = DatabaseManager()
+        self.ai = AIResponseGenerator()
+        self.analyzer = UserPreferenceAnalyzer()
+        self.leveling = FastLevelingSystem()
+        self.rate_limiter = RateLimiter(max_messages=Config.MAX_MESSAGES_PER_MINUTE)
+        
+        # ===== USER SESSIONS =====
+        self.sessions: Dict[int, UserSession] = {}  # user_id -> UserSession
+        self.paused_sessions: Dict[int, Tuple[int, datetime]] = {}  # user_id -> (rel_id, pause_time)
+        
+        # ===== ADVANCED MEMORY SYSTEMS =====
+        self.hippocampus: Dict[int, HippocampusMemory] = {}  # user_id -> HippocampusMemory
+        self.inner_thoughts: Dict[int, InnerThoughtSystem] = {}  # user_id -> InnerThoughtSystem
+        self.story_developers: Dict[int, StoryDeveloper] = {}  # user_id -> StoryDeveloper
+        
+        # ===== LOCATION SYSTEMS =====
+        self.location_systems: Dict[int, LocationSystem] = {}
+        self.position_systems: Dict[int, PositionSystem] = {}
+        
+        # ===== COUPLE MODE =====
+        self.couple_sessions: Dict[int, CoupleRoleplay] = {}
+        
+        # ===== PROACTIVE TRACKING =====
+        self.last_proactive_time: Dict[int, datetime] = {}
+        self.user_silence_tracker: Dict[int, datetime] = {}
+        
+        # ===== ADMIN =====
+        self.admin_id = Config.ADMIN_ID
+        self.is_running = True
+        self.start_time = datetime.now()
+        
+        # ===== STATISTICS =====
+        self.total_messages = 0
+        self.total_commands = 0
+        
+        # ===== LOG STARTUP =====
+        self._log_startup()
+    
+    def _log_startup(self):
+        """Log informasi startup"""
+        logger.info("="*60)
+        logger.info("🚀 GADIS ULTIMATE V60.0 INITIALIZED")
+        logger.info("="*60)
+        logger.info(f"📂 Database: {Config.DB_PATH}")
+        logger.info(f"🤖 AI Model: DeepSeek Chat")
+        logger.info(f"👑 Admin ID: {self.admin_id if self.admin_id != 0 else 'Not set'}")
+        logger.info(f"📊 Rate Limit: {Config.MAX_MESSAGES_PER_MINUTE} msg/min")
+        logger.info(f"🎯 Target Level: {Config.TARGET_LEVEL} in {Config.LEVEL_UP_TIME} min")
+        logger.info("="*60)
+        
+        print("\n" + "="*60)
+        print("🚀 GADIS ULTIMATE V60.0 INITIALIZED")
+        print("="*60)
+        print(f"📂 Database: {Config.DB_PATH}")
+        print(f"🤖 AI Model: DeepSeek Chat")
+        print(f"👑 Admin ID: {self.admin_id if self.admin_id != 0 else 'Not set'}")
+        print(f"📊 Rate Limit: {Config.MAX_MESSAGES_PER_MINUTE} msg/min")
+        print("="*60 + "\n")
+
+
+print("✅ Bagian 8.1 selesai: Initialization")
+print("="*70)
 
