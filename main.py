@@ -6736,9 +6736,6 @@ class GadisUltimateV60:
             "/unpause - Lanjutkan sesi\n"
             "/close - Tutup sesi (simpan memori)\n"
             "/end - Akhiri hubungan & hapus data\n"
-            "/couple - Mulai mode couple roleplay\n"
-            "/couple_next - Lanjutkan couple\n"
-            "/couple_stop - Hentikan couple\n"
             "/help - Tampilkan bantuan\n\n"
             "**🔹 LEVEL DOMINAN**\n"
             "• normal - Mode biasa\n"
@@ -7326,240 +7323,8 @@ class GadisUltimateV60:
 print("✅ BAB 9 Selesai: Main Bot Class - Commands")
 print("="*70)
 # ===================== BAB 10: MAIN BOT CLASS - SPECIAL FEATURES =====================
-# Bagian 10.1: Couple Roleplay
 # Bagian 10.2: Admin Commands
 # Bagian 10.3: Advanced Features
-
-class CoupleRoleplay:
-    """
-    Simulasi dua bot (wanita & pria) berinteraksi dari level 1 sampai 12
-    User bisa melihat percakapan mereka berkembang secara natural
-    """
-    
-    def __init__(self, ai_gen):
-        self.ai = ai_gen
-        self.conversation = []  # List of messages
-        self.level = 1
-        self.stage = IntimacyStage.STRANGER
-        
-        # Nama karakter
-        self.female_name = "Aurora"
-        self.male_name = "Rangga"
-        
-        # Stage map untuk update stage
-        self.stage_map = {
-            1: IntimacyStage.STRANGER,
-            2: IntimacyStage.STRANGER,
-            3: IntimacyStage.INTRODUCTION,
-            4: IntimacyStage.BUILDING,
-            5: IntimacyStage.BUILDING,
-            6: IntimacyStage.FLIRTING,
-            7: IntimacyStage.INTIMATE,
-            8: IntimacyStage.INTIMATE,
-            9: IntimacyStage.OBSESSED,
-            10: IntimacyStage.OBSESSED,
-            11: IntimacyStage.SOUL_BONDED,
-            12: IntimacyStage.AFTERCARE
-        }
-        
-        # Riwayat ringkas untuk prompt
-        self.max_history = 10
-    
-    async def generate_next(self, user_id: int) -> str:
-        """
-        Menghasilkan satu pesan dari salah satu bot secara bergantian
-        Returns: formatted message dengan level info
-        """
-        # Tentukan giliran: genap dari female, ganjil dari male
-        turn = len(self.conversation) % 2
-        speaker = self.female_name if turn == 0 else self.male_name
-        other = self.male_name if turn == 0 else self.female_name
-        
-        # Buat konteks dari riwayat percakapan
-        history_text = ""
-        for msg in self.conversation[-self.max_history:]:
-            history_text += f"{msg['speaker']}: {msg['text']}\n"
-        
-        # Tambahkan instruksi berdasarkan level
-        level_instruction = ""
-        if self.level >= 7:
-            level_instruction = "Mereka sudah sangat intim dan nyaman berbicara vulgar."
-        elif self.level >= 4:
-            level_instruction = "Mereka mulai akrab dan bisa sedikit menggoda."
-        else:
-            level_instruction = "Mereka masih dalam tahap perkenalan, sopan dan canggung."
-        
-        # Buat prompt untuk AI
-        prompt = f"""Ini adalah roleplay antara dua orang: 
-- {self.female_name} (wanita, 25 tahun, karyawan kantor)
-- {self.male_name} (pria, 27 tahun, pengusaha)
-
-Mereka sedang dalam tahap hubungan:
-Level {self.level}/12 - {self.stage.value}
-{level_instruction}
-
-Sekarang giliran {speaker} berbicara kepada {other}.
-
-Buat dialog yang natural dan hidup, sesuai dengan level hubungan mereka.
-Gunakan bahasa Indonesia sehari-hari.
-
-Riwayat percakapan sebelumnya:
-{history_text}
-
-{speaker}:"""
-        
-        try:
-            # Panggil AI
-            response = await self.ai._call_api(prompt, temperature=0.9, max_tokens=150)
-            text = response.strip()
-            
-            # Simpan percakapan
-            self.conversation.append({
-                "speaker": speaker,
-                "text": text,
-                "level": self.level,
-                "timestamp": datetime.now().isoformat()
-            })
-            
-            # Update level setiap 2 pesan (satu putaran)
-            if len(self.conversation) % 2 == 0:
-                self.level = min(12, self.level + 1)
-                self.stage = self.stage_map.get(self.level, IntimacyStage.STRANGER)
-            
-            # Format output
-            progress_bar = self._get_progress_bar()
-            return (
-                f"👫 **Level {self.level}/12 - {self.stage.value}**\n"
-                f"{progress_bar}\n\n"
-                f"*{speaker}*: {text}"
-            )
-            
-        except Exception as e:
-            logger.error(f"Couple Mode Error: {e}")
-            return (
-                f"👫 **Level {self.level}/12 - {self.stage.value}**\n\n"
-                f"*{speaker}*: ... (error generating response)"
-            )
-    
-    def _get_progress_bar(self, length: int = 10) -> str:
-        """Dapatkan progress bar visual untuk couple mode"""
-        progress = (self.level - 1) / 11  # 0-1
-        filled = int(progress * length)
-        return "▓" * filled + "░" * (length - filled)
-    
-    def get_summary(self) -> Dict:
-        """Dapatkan ringkasan couple roleplay"""
-        total_messages = len(self.conversation)
-        duration = total_messages // 2  # Satu putaran = 2 pesan
-        
-        return {
-            "level": self.level,
-            "stage": self.stage.value,
-            "total_messages": total_messages,
-            "total_rounds": duration,
-            "last_message": self.conversation[-1] if self.conversation else None
-        }
-    
-    def reset(self):
-        """Reset couple roleplay ke awal"""
-        self.conversation = []
-        self.level = 1
-        self.stage = IntimacyStage.STRANGER
-    
-    def export_conversation(self) -> str:
-        """Ekspor seluruh percakapan dalam format teks"""
-        output = f"COUPLE ROLEPLAY: {self.female_name} & {self.male_name}\n"
-        output += f"Total {len(self.conversation)} pesan\n"
-        output += "="*50 + "\n\n"
-        
-        for msg in self.conversation:
-            output += f"[Level {msg['level']}] {msg['speaker']}: {msg['text']}\n"
-        
-        return output
-    
-    def get_last_few(self, count: int = 5) -> List[str]:
-        """Dapatkan beberapa pesan terakhir"""
-        recent = self.conversation[-count:] if self.conversation else []
-        return [
-            f"[Lv{msg['level']}] {msg['speaker']}: {msg['text']}"
-            for msg in recent
-        ]
-
-
-# ===================== Couple Mode Methods =====================
-
-    async def couple_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
-        """Memulai mode couple roleplay"""
-        user_id = update.effective_user.id
-        username = update.effective_user.username or update.effective_user.first_name
-        
-        self.log_command('couple', user_id, username)
-        
-        if user_id in self.couple_sessions:
-            await update.message.reply_text(
-                "👫 Mode couple sudah aktif.\n"
-                "Ketik /couple_next untuk lanjut\n"
-                "Ketik /couple_stop untuk berhenti."
-            )
-            return
-        
-        self.couple_sessions[user_id] = CoupleRoleplay(self.ai)
-        await update.message.reply_text(
-            "👫 **Mode Couple Roleplay dimulai!**\n\n"
-            "Aku akan menampilkan percakapan antara **Aurora** (wanita) dan **Rangga** (pria)\n"
-            "Mereka akan berkembang dari level 1 hingga 12.\n\n"
-            "Ketik /couple_next untuk melihat interaksi berikutnya\n"
-            "Ketik /couple_stop untuk keluar."
-        )
-        
-        logger.info(f"User {user_id} started couple mode")
-    
-    async def couple_next(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
-        """Lanjutkan couple roleplay ke pesan berikutnya"""
-        user_id = update.effective_user.id
-        
-        if user_id not in self.couple_sessions:
-            await update.message.reply_text(
-                "❌ Mode couple belum aktif.\n"
-                "Ketik /couple untuk memulai."
-            )
-            return
-        
-        couple = self.couple_sessions[user_id]
-        msg = await couple.generate_next(user_id)
-        
-        await update.message.reply_text(msg)
-        
-        # Jika sudah level 12, beri notifikasi
-        if couple.level >= 12:
-            await update.message.reply_text(
-                "🎉 **Mereka telah mencapai Level 12!**\n"
-                "Hubungan mencapai puncak. Ketik /couple_stop untuk mengakhiri."
-            )
-    
-    async def couple_stop(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
-        """Hentikan mode couple roleplay"""
-        user_id = update.effective_user.id
-        
-        if user_id in self.couple_sessions:
-            couple = self.couple_sessions[user_id]
-            summary = couple.get_summary()
-            
-            del self.couple_sessions[user_id]
-            
-            await update.message.reply_text(
-                f"👋 **Mode couple dihentikan**\n\n"
-                f"**Statistik:**\n"
-                f"• Level akhir: {summary['level']}/12\n"
-                f"• Total pesan: {summary['total_messages']}\n"
-                f"• {summary['total_rounds']} putaran percakapan\n\n"
-                f"Ketik /couple untuk memulai lagi."
-            )
-            
-            logger.info(f"User {user_id} stopped couple mode at level {summary['level']}")
-        else:
-            await update.message.reply_text("❌ Tidak ada mode couple aktif.")
-
 
 # ===================== BAB 10.2: Admin Commands =====================
 
@@ -8812,7 +8577,7 @@ def main():
         persistent=False
     )
     
-    # BROADCAST dan SHUTDOWN TELAH DIHAPUS
+    # BROADCAST, SHUTDOWN, dan COUPLE TELAH DIHAPUS
     
     print("  • Conversation handlers created")
     
@@ -8820,7 +8585,7 @@ def main():
     app.add_handler(start_conv)
     app.add_handler(end_conv)
     app.add_handler(close_conv)
-    # broadcast_conv dan shutdown_conv TELAH DIHAPUS
+    # broadcast_conv, shutdown_conv, dan couple commands TELAH DIHAPUS
     
     # User commands
     app.add_handler(CommandHandler("status", bot.status_command))
@@ -8829,10 +8594,7 @@ def main():
     app.add_handler(CommandHandler("unpause", bot.unpause_command))
     app.add_handler(CommandHandler("help", bot.help_command))
     
-    # Couple mode commands
-    app.add_handler(CommandHandler("couple", bot.couple_command))
-    app.add_handler(CommandHandler("couple_next", bot.couple_next))
-    app.add_handler(CommandHandler("couple_stop", bot.couple_stop))
+    # COUPLE COMMANDS TELAH DIHAPUS
     
     # Admin commands (tanpa broadcast dan shutdown)
     app.add_handler(CommandHandler("admin", bot.admin_command))
@@ -8910,9 +8672,7 @@ def main():
     print("• /unpause   - Lanjutkan sesi")
     print("• /close     - Tutup sesi (simpan memori)")
     print("• /end       - Akhiri hubungan & hapus data")
-    print("• /couple    - Mode couple roleplay")
-    print("• /couple_next - Lanjutkan couple")
-    print("• /couple_stop - Hentikan couple")
+    # COUPLE COMMANDS TELAH DIHAPUS
     print("• /help      - Tampilkan bantuan")
     
     if Config.ADMIN_ID != 0:
@@ -8940,8 +8700,8 @@ def main():
     print("• Physical attributes generator")
     print("• Dynamic clothing system")
     print("• Location & movement system")
-    print("• Mode couple roleplay")
     print("• Admin dashboard & analytics")
+    # COUPLE MODE TELAH DIHAPUS
     
     print("\n" + "="*70)
     
