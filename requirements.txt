@@ -9,7 +9,7 @@ httpx==0.25.2
 aiohttp==3.9.5
 
 # Webhook server untuk Railway
-Flask==3.0.0
+flask[async]==3.0.0
 requests==2.31.0
 
 # Utilities
