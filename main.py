@@ -7974,11 +7974,6 @@ Riwayat percakapan sebelumnya:
         except Exception as e:
             await update.message.reply_text(f"❌ Vacuum gagal: {e}")
 
-
-print("✅ Bagian 10.2 selesai: Admin Commands")
-print("="*70)
-# ===================== BAB 10.3: Advanced Features =====================
-
     async def memory_stats_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         """Lihat statistik memori (hanya admin)"""
         user_id = update.effective_user.id
@@ -8170,14 +8165,6 @@ print("="*70)
                     parse_mode='Markdown'
                 )
                 logger.info(f"📖 Proactive story sent to user {user_id}")
-
-
-print("✅ Bagian 10.3 selesai: Advanced Features")
-print("="*70)
-print("✅ BAB 10 Selesai: Main Bot Class - Special Features")
-print("="*70)
-# ===================== BAB 11: MESSAGE HANDLER =====================
-# Bagian 11.1: Message Processing
 
     async def handle_message(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         """
