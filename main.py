@@ -6783,10 +6783,7 @@ class GadisUltimateV60:
         if user_id in self.user_silence_tracker:
             return (datetime.now() - self.user_silence_tracker[user_id]).total_seconds()
         return 0
-
-
-print("✅ BAB 8 Selesai: Main Bot Class - Core")
-print("="*70)
+        
 # ===================== BAB 9: MAIN BOT CLASS - COMMANDS =====================
 # Bagian 9.1: Start & Role Selection
 # Bagian 9.2: Status & Dominance Commands
