@@ -8814,7 +8814,6 @@ print("="*70)
 from flask import Flask, request
 import threading
 import requests
-import os
 
 # Global variables untuk Flask
 flask_app = Flask(__name__)
@@ -8831,15 +8830,18 @@ def webhook():
     return 'Bot not ready', 503
 
 @flask_app.route('/')
+def home():
+    """Healthcheck endpoint untuk Railway"""
+    return 'NOVA GIRL Bot is running!', 200
+
 @flask_app.route('/health')
 def health():
-    """Healthcheck endpoint untuk Railway"""
-    return 'Healthy', 200  # ← WAJIB return 200 OK
+    """Alternate healthcheck endpoint"""
+    return 'Healthy', 200
 
 def run_flask():
-    """Run Flask app for webhook - LISTEN ON PORT"""
-    port = int(os.getenv('PORT', 8080))  # ← WAJIB gunakan PORT dari Railway
-    print(f"🌐 Starting Flask on port {port}")
+    """Run Flask app for webhook"""
+    port = int(os.getenv('PORT', 8080))
     flask_app.run(host='0.0.0.0', port=port)
 
 def start_webhook(bot):
@@ -8852,7 +8854,7 @@ def start_webhook(bot):
     if not railway_url:
         railway_url = os.getenv('RAILWAY_STATIC_URL', '')
     
-    # Jalankan Flask di thread terpisah (langsung, tanpa perlu URL)
+    # Jalankan Flask di thread terpisah (langsung)
     flask_thread = threading.Thread(target=run_flask)
     flask_thread.daemon = True
     flask_thread.start()
@@ -8875,7 +8877,6 @@ def start_webhook(bot):
     
     print(f"✅ Healthcheck endpoint ready at port {os.getenv('PORT', '8080')}")
     return True
-    
 
 def main():
     """
@@ -8949,18 +8950,7 @@ def main():
         persistent=False
     )
     
-     # 4. BROADCAST Conversation Handler
-    broadcast_conv = ConversationHandler(
-        entry_points=[CommandHandler('broadcast', bot.broadcast_command)],
-        states={
-            Constants.CONFIRM_BROADCAST: [CallbackQueryHandler(bot.broadcast_callback, pattern='^broadcast_')],
-        },
-        fallbacks=[CommandHandler('cancel', bot.cancel_command)],
-        name="broadcast_conversation",
-        persistent=False
-    )
-    
-    # 5. SHUTDOWN Conversation Handler
+    # 4. SHUTDOWN Conversation Handler
     shutdown_conv = ConversationHandler(
         entry_points=[CommandHandler('shutdown', bot.shutdown_command)],
         states={
@@ -8977,7 +8967,6 @@ def main():
     app.add_handler(start_conv)
     app.add_handler(end_conv)
     app.add_handler(close_conv)
-    app.add_handler(broadcast_conv)
     app.add_handler(shutdown_conv)
     
     # User commands
@@ -8992,7 +8981,7 @@ def main():
     app.add_handler(CommandHandler("couple_next", bot.couple_next))
     app.add_handler(CommandHandler("couple_stop", bot.couple_stop))
     
-    # Admin commands
+    # Admin commands (tanpa broadcast)
     app.add_handler(CommandHandler("admin", bot.admin_command))
     app.add_handler(CommandHandler("stats", bot.stats_command))
     app.add_handler(CommandHandler("db_stats", bot.db_stats_command))
@@ -9078,7 +9067,6 @@ def main():
         print("• /admin     - Menu admin")
         print("• /stats     - Statistik bot")
         print("• /db_stats  - Statistik database")
-        print("• /broadcast - Kirim broadcast")
         print("• /reload    - Reload konfigurasi")
         print("• /shutdown  - Matikan bot")
         print("• /list_users - Daftar user")
@@ -9086,6 +9074,7 @@ def main():
         print("• /force_reset - Reset user")
         print("• /backup_db - Backup database")
         print("• /vacuum    - Optimasi database")
+        print("• /memory_stats - Statistik memori")
     
     print("\n🎯 **FITUR PREMIUM:**")
     print("• 20+ Mood dengan transisi natural")
