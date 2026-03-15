@@ -8464,13 +8464,13 @@ loop_thread = threading.Thread(target=run_global_loop, daemon=True)
 loop_thread.start()
 print("✅ Global event loop is running")
 
-# ===== WEBHOOK ENDPOINT (FORCE TASK) =====
+# ===== WEBHOOK ENDPOINT (FINAL VERSION) =====
 @flask_app.route('/webhook', methods=['POST'])
 def webhook():
     """Handle incoming webhook updates from Telegram"""
     print("🔥🔥🔥 WEBHOOK DIPANGGIL!")
     
-    global bot_instance
+    global bot_instance, global_loop
     if bot_instance and hasattr(bot_instance, 'application'):
         try:
             update_data = request.get_json(force=True)
@@ -8480,30 +8480,12 @@ def webhook():
             # Buat update object
             update = Update.de_json(update_data, bot_instance.application.bot)
             
-            # Dapatkan event loop
-            try:
-                loop = asyncio.get_running_loop()
-                print(f"✅ Using running loop")
-            except RuntimeError:
-                loop = asyncio.new_event_loop()
-                asyncio.set_event_loop(loop)
-                print(f"✅ Created new loop")
-            
-            # Buat task dan pastikan berjalan
-            task = loop.create_task(bot_instance.application.process_update(update))
-            print(f"✅ Task created for update {update_id}")
-            
-            # Callback untuk log saat task selesai
-            def task_done_callback(future):
-                try:
-                    future.result()  # Akan raise exception jika ada error
-                    print(f"✅ Task completed successfully for update {update_id}")
-                except Exception as e:
-                    print(f"❌ Task failed for update {update_id}: {e}")
-                    import traceback
-                    traceback.print_exc()
-            
-            task.add_done_callback(task_done_callback)
+            # Kirim ke global loop
+            asyncio.run_coroutine_threadsafe(
+                bot_instance.application.process_update(update),
+                global_loop
+            )
+            print(f"✅ Task submitted to global loop for update {update_id}")
             
             return 'OK', 200
         except Exception as e:
