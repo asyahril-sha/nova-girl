@@ -8841,6 +8841,7 @@ print("="*70)
 from flask import Flask, request
 import threading
 import requests
+import os
 
 # Global variables untuk Flask
 flask_app = Flask(__name__)
@@ -8857,18 +8858,15 @@ def webhook():
     return 'Bot not ready', 503
 
 @flask_app.route('/')
-def home():
-    """Healthcheck endpoint untuk Railway"""
-    return 'NOVA GIRL Bot is running!', 200
-
 @flask_app.route('/health')
 def health():
-    """Alternate healthcheck endpoint"""
-    return 'Healthy', 200
+    """Healthcheck endpoint untuk Railway"""
+    return 'Healthy', 200  # ← WAJIB return 200 OK
 
 def run_flask():
-    """Run Flask app for webhook"""
-    port = int(os.getenv('PORT', 8080))
+    """Run Flask app for webhook - LISTEN ON PORT"""
+    port = int(os.getenv('PORT', 8080))  # ← WAJIB gunakan PORT dari Railway
+    print(f"🌐 Starting Flask on port {port}")
     flask_app.run(host='0.0.0.0', port=port)
 
 def start_webhook(bot):
@@ -8881,11 +8879,14 @@ def start_webhook(bot):
     if not railway_url:
         railway_url = os.getenv('RAILWAY_STATIC_URL', '')
     
-    # Jika di Railway, set webhook
+    # Jalankan Flask di thread terpisah (langsung, tanpa perlu URL)
+    flask_thread = threading.Thread(target=run_flask)
+    flask_thread.daemon = True
+    flask_thread.start()
+    
+    # Set webhook jika di Railway
     if railway_url:
         webhook_url = f"https://{railway_url}/webhook"
-        
-        # Set webhook via Telegram API
         try:
             token = Config.TELEGRAM_TOKEN
             response = requests.get(
@@ -8894,13 +8895,13 @@ def start_webhook(bot):
             )
             if response.status_code == 200 and response.json().get('ok'):
                 print(f"✅ Webhook set to: {webhook_url}")
-                print(f"✅ Healthcheck endpoint: https://{railway_url}/")
             else:
                 print(f"❌ Failed to set webhook: {response.text}")
-                return False
         except Exception as e:
             print(f"❌ Error setting webhook: {e}")
-            return False
+    
+    print(f"✅ Healthcheck endpoint ready at port {os.getenv('PORT', '8080')}")
+    return True
         
         # Run Flask in a separate thread
         flask_thread = threading.Thread(target=run_flask)
