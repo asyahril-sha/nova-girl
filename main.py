@@ -8442,10 +8442,10 @@ log.setLevel(logging.ERROR)
 flask_app = Flask(__name__)
 bot_instance = None
 
-# ===== WEBHOOK ENDPOINT (FIXED VERSION) =====
+# ===== WEBHOOK ENDPOINT (FINAL VERSION) =====
 @flask_app.route('/webhook', methods=['POST'])
 def webhook():
-    """Handle incoming webhook updates from Telegram (fixed version)"""
+    """Handle incoming webhook updates from Telegram"""
     print("🔥🔥🔥 WEBHOOK DIPANGGIL!")
     
     global bot_instance
@@ -8455,18 +8455,22 @@ def webhook():
             update_data = request.get_json(force=True)
             print(f"📦 Update data: {str(update_data)[:200]}...")
             
+            # Cek apakah application sudah di-initialize
+            if not bot_instance.application.initialized:
+                print(f"⚠️ Application not initialized!")
+                return 'Application not ready', 503
+            
             # Buat update object
             update = Update.de_json(update_data, bot_instance.application.bot)
             
-            # Dapatkan atau buat event loop untuk thread ini
+            # Dapatkan atau buat event loop
             try:
                 loop = asyncio.get_event_loop()
             except RuntimeError:
-                # Tidak ada event loop di thread ini, buat baru
                 loop = asyncio.new_event_loop()
                 asyncio.set_event_loop(loop)
             
-            # Jalankan coroutine
+            # Proses update
             loop.run_until_complete(bot_instance.application.process_update(update))
             
             print(f"✅ Update processed successfully")
@@ -8587,7 +8591,10 @@ async def main():
     # Build application dengan custom request
     app = Application.builder().token(Config.TELEGRAM_TOKEN).request(request).build()
     bot.application = app
-    
+
+    # 🔴 PENTING: Initialize application (WAJIB di PTB v20+)
+    await app.initialize()
+
     # ===== CONVERSATION HANDLERS =====
     start_conv = ConversationHandler(
         entry_points=[CommandHandler('start', bot.start_command)],
