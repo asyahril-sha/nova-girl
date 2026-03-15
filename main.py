@@ -6781,16 +6781,16 @@ class GadisUltimateV60:
         if user_id in self.user_silence_tracker:
             return (datetime.now() - self.user_silence_tracker[user_id]).total_seconds()
         return 0
-        
+    
     async def start_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         """Memulai hubungan baru dengan bot"""
         user_id = update.effective_user.id
         username = update.effective_user.username or update.effective_user.first_name
-    
+        
         self.log_command('start', user_id, username)
-    
+        
         # Cek apakah sudah ada sesi aktif
-        if user_id in self.sessions:  # ← LINE 6802
+        if user_id in self.sessions:
             await update.message.reply_text(
                 "Kamu sudah memiliki sesi aktif. Ketik /close untuk menutup sesi atau /pause untuk jeda."
             )
@@ -6808,6 +6808,18 @@ class GadisUltimateV60:
                 reply_markup=reply_markup
             )
             return Constants.SELECTING_ROLE
+        
+        # Tampilkan disclaimer 18+
+        disclaimer = self.get_disclaimer()
+        keyboard = [[InlineKeyboardButton("✅ Saya setuju (18+)", callback_data="agree_18")]]
+        reply_markup = InlineKeyboardMarkup(keyboard)
+        
+        await update.message.reply_text(
+            disclaimer, 
+            reply_markup=reply_markup,
+            parse_mode='Markdown'
+        )
+        return Constants.SELECTING_ROLE
         
         # Tampilkan disclaimer 18+
         disclaimer = self.get_disclaimer()
