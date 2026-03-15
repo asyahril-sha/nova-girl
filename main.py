@@ -8987,7 +8987,7 @@ def main():
     except Exception as e:
         # Fatal error
         print("\n\n" + "="*70)
-        print("❌ **FATAL ERROR**)
+        print("❌ **FATAL ERROR**")
         print("="*70)
         print(f"\nError: {e}")
         print("\nBot crashed. Check gadis.log for details.")
