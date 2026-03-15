@@ -7319,15 +7319,6 @@ class GadisUltimateV60:
         help_text = self.get_help_text(update)
         await update.message.reply_text(help_text, parse_mode='Markdown')
 
-
-print("✅ BAB 9 Selesai: Main Bot Class - Commands")
-print("="*70)
-# ===================== BAB 10: MAIN BOT CLASS - SPECIAL FEATURES =====================
-# Bagian 10.2: Admin Commands
-# Bagian 10.3: Advanced Features
-
-# ===================== BAB 10.2: Admin Commands =====================
-
     async def admin_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         """Menu admin - menampilkan semua command admin"""
         user_id = update.effective_user.id
