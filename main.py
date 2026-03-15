@@ -8837,10 +8837,10 @@ print("="*70)
 # Bagian 12.3: Webhook Setup
 # Bagian 12.4: Startup & Graceful Shutdown
 
-# ===== WEBHOOK SETUP =====
+# ===== WEBHOOK SETUP UNTUK RAILWAY =====
 from flask import Flask, request
-import requests
 import threading
+import requests
 
 # Global variables untuk Flask
 flask_app = Flask(__name__)
@@ -8850,7 +8850,7 @@ bot_instance = None
 def webhook():
     """Handle incoming webhook updates from Telegram"""
     global bot_instance
-    if bot_instance and bot_instance.application:
+    if bot_instance and hasattr(bot_instance, 'application'):
         update = Update.de_json(request.get_json(force=True), bot_instance.application.bot)
         bot_instance.application.process_update(update)
         return 'OK', 200
@@ -8858,10 +8858,12 @@ def webhook():
 
 @flask_app.route('/')
 def home():
+    """Healthcheck endpoint untuk Railway"""
     return 'NOVA GIRL Bot is running!', 200
 
 @flask_app.route('/health')
 def health():
+    """Alternate healthcheck endpoint"""
     return 'Healthy', 200
 
 def run_flask():
@@ -8879,6 +8881,7 @@ def start_webhook(bot):
     if not railway_url:
         railway_url = os.getenv('RAILWAY_STATIC_URL', '')
     
+    # Jika di Railway, set webhook
     if railway_url:
         webhook_url = f"https://{railway_url}/webhook"
         
@@ -8891,17 +8894,22 @@ def start_webhook(bot):
             )
             if response.status_code == 200 and response.json().get('ok'):
                 print(f"✅ Webhook set to: {webhook_url}")
+                print(f"✅ Healthcheck endpoint: https://{railway_url}/")
             else:
                 print(f"❌ Failed to set webhook: {response.text}")
+                return False
         except Exception as e:
             print(f"❌ Error setting webhook: {e}")
+            return False
+        
+        # Run Flask in a separate thread
+        flask_thread = threading.Thread(target=run_flask)
+        flask_thread.daemon = True
+        flask_thread.start()
+        return True
     else:
-        print("⚠️ No Railway URL found, webhook not set")
-    
-    # Run Flask in a separate thread
-    flask_thread = threading.Thread(target=run_flask)
-    flask_thread.daemon = True
-    flask_thread.start()
+        print("⚠️ No Railway URL found, using polling mode")
+        return False
 
 def main():
     """
@@ -9128,11 +9136,23 @@ def main():
     print("• Admin dashboard & analytics")
     
     print("\n" + "="*70)
-    print("🚀 Bot is running with WEBHOOK...")
-    print("="*70 + "\n")
     
     # ===== START WEBHOOK =====
-    start_webhook(bot)
+    webhook_started = start_webhook(bot)
+    
+    if webhook_started:
+        print("🚀 Bot is running with WEBHOOK...")
+        print(f"🌐 Healthcheck endpoint: /")
+        print(f"🤖 Webhook endpoint: /webhook")
+        print("✅ Healthcheck akan selalu sukses!")
+    else:
+        print("🚀 Bot is running with POLLING (fallback)...")
+        print("⚠️ Healthcheck mungkin gagal karena tidak ada endpoint")
+        # Start polling jika webhook gagal
+        app.run_polling()
+        return
+    
+    print("="*70 + "\n")
     
     # Keep the main thread alive
     try:
