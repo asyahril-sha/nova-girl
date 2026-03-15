@@ -6310,4 +6310,2844 @@ class GadisUltimateV60:
 
 print("✅ Bagian 8.1 selesai: Initialization")
 print("="*70)
+# ===================== BAB 8.2: Session Management =====================
+
+    # ===== GETTER METHODS =====
+    
+    def get_session(self, user_id: int) -> Optional[UserSession]:
+        """Dapatkan atau buat session untuk user"""
+        if user_id not in self.sessions:
+            # Coba load dari database
+            rel = self.db.get_relationship(user_id)
+            if rel:
+                self._load_session_from_db(user_id, rel)
+            else:
+                return None
+        
+        return self.sessions.get(user_id)
+    
+    def _load_session_from_db(self, user_id: int, rel: Dict):
+        """Load session dari database"""
+        session = UserSession(
+            user_id=user_id,
+            relationship_id=rel['id'],
+            bot_name=rel['bot_name'],
+            bot_role=rel['bot_role'],
+            level=rel['level'],
+            stage=IntimacyStage(rel['stage']) if rel['stage'] else IntimacyStage.STRANGER,
+            climax_count=rel['total_climax'] or 0,
+            message_count=rel['total_messages'] or 0,
+            created_at=datetime.fromisoformat(rel['created_at']) if rel['created_at'] else datetime.now(),
+            last_active=datetime.fromisoformat(rel['last_active']) if rel['last_active'] else datetime.now()
+        )
+        
+        # Load physical attributes
+        if any([rel.get('hair_style'), rel.get('height')]):
+            session.bot_physical = {
+                'hair_style': rel.get('hair_style'),
+                'height': rel.get('height'),
+                'weight': rel.get('weight'),
+                'breast_size': rel.get('breast_size'),
+                'hijab': rel.get('hijab', 0),
+                'most_sensitive_area': rel.get('most_sensitive_area'),
+                'skin': rel.get('skin_color'),
+                'face_shape': rel.get('face_shape'),
+                'personality': rel.get('personality')
+            }
+        
+        # Load clothing
+        if rel.get('current_clothing'):
+            session.bot_clothing = rel['current_clothing']
+            if rel.get('last_clothing_change'):
+                session.last_clothing_update = datetime.fromisoformat(rel['last_clothing_change'])
+        
+        # Load dominance
+        if rel.get('dominance'):
+            for level in DominanceLevel:
+                if level.value == rel['dominance']:
+                    session.dominance_mode = level
+                    break
+        
+        self.sessions[user_id] = session
+        logger.debug(f"Loaded session for user {user_id} from database")
+    
+    def get_hippocampus(self, user_id: int) -> HippocampusMemory:
+        """Dapatkan atau buat hippocampus memory untuk user"""
+        if user_id not in self.hippocampus:
+            self.hippocampus[user_id] = HippocampusMemory(user_id)
+        return self.hippocampus[user_id]
+    
+    def get_inner_thought(self, user_id: int) -> InnerThoughtSystem:
+        """Dapatkan inner thought system untuk user"""
+        if user_id not in self.inner_thoughts:
+            hippocampus = self.get_hippocampus(user_id)
+            self.inner_thoughts[user_id] = InnerThoughtSystem(self.ai, hippocampus, user_id)
+        return self.inner_thoughts[user_id]
+    
+    def get_story_developer(self, user_id: int) -> StoryDeveloper:
+        """Dapatkan story developer untuk user"""
+        if user_id not in self.story_developers:
+            hippocampus = self.get_hippocampus(user_id)
+            self.story_developers[user_id] = StoryDeveloper(self.ai, hippocampus, user_id)
+        return self.story_developers[user_id]
+    
+    def get_location_system(self, user_id: int) -> LocationSystem:
+        """Dapatkan location system untuk user"""
+        if user_id not in self.location_systems:
+            self.location_systems[user_id] = LocationSystem()
+        return self.location_systems[user_id]
+    
+    def get_position_system(self, user_id: int) -> PositionSystem:
+        """Dapatkan position system untuk user"""
+        if user_id not in self.position_systems:
+            self.position_systems[user_id] = PositionSystem()
+        return self.position_systems[user_id]
+    
+    def update_clothing(self, user_id: int, clothing: str = None):
+        """Update pakaian user"""
+        session = self.get_session(user_id)
+        if not session:
+            return
+        
+        if clothing:
+            session.bot_clothing = clothing
+        else:
+            # Generate random clothing based on role and location
+            location = self.get_location_system(user_id).get_current()
+            session.bot_clothing = ClothingSystem.generate_clothing(
+                session.bot_role,
+                location.value if location else None
+            )
+        
+        session.last_clothing_update = datetime.now()
+        self.db.update_clothing(user_id, session.bot_clothing)
+    
+    # ===== SESSION CONTROL =====
+    
+    def create_session(self, user_id: int, bot_name: str, bot_role: str, 
+                      physical_attrs: Dict, clothing: str) -> bool:
+        """Buat session baru untuk user"""
+        # Simpan ke database
+        rel_id = self.db.create_relationship(
+            user_id, bot_name, bot_role,
+            physical_attrs=physical_attrs,
+            clothing=clothing
+        )
+        
+        if not rel_id:
+            return False
+        
+        # Buat session
+        session = UserSession(
+            user_id=user_id,
+            relationship_id=rel_id,
+            bot_name=bot_name,
+            bot_role=bot_role,
+            bot_physical=physical_attrs,
+            bot_clothing=clothing
+        )
+        
+        self.sessions[user_id] = session
+        
+        # Inisialisasi leveling
+        self.leveling.start_session(user_id)
+        
+        logger.info(f"✨ New session created: User {user_id} as {bot_name} ({bot_role})")
+        return True
+    
+    def pause_session(self, user_id: int) -> bool:
+        """Pause session"""
+        if user_id not in self.sessions:
+            return False
+        
+        session = self.sessions[user_id]
+        
+        # Save to database
+        self.save_session_to_db(user_id)
+        
+        # Save to paused sessions
+        self.paused_sessions[user_id] = (session.relationship_id, datetime.now())
+        
+        # Remove from active sessions
+        del self.sessions[user_id]
+        
+        logger.info(f"⏸️ Session paused for user {user_id}")
+        return True
+    
+    def unpause_session(self, user_id: int) -> bool:
+        """Unpause session"""
+        if user_id not in self.paused_sessions:
+            return False
+        
+        rel_id, pause_time = self.paused_sessions[user_id]
+        
+        # Check if expired
+        if (datetime.now() - pause_time).total_seconds() > Config.PAUSE_TIMEOUT:
+            del self.paused_sessions[user_id]
+            logger.info(f"⏰ Session expired for user {user_id}")
+            return False
+        
+        # Load from database
+        rel = self.db.get_relationship(user_id)
+        if rel:
+            self._load_session_from_db(user_id, rel)
+            self.sessions[user_id].relationship_id = rel_id
+        
+        del self.paused_sessions[user_id]
+        
+        logger.info(f"▶️ Session unpaused for user {user_id}")
+        return True
+    
+    def close_session(self, user_id: int, save: bool = True) -> bool:
+        """Close session (soft reset - save to DB)"""
+        if save and user_id in self.sessions:
+            self.save_session_to_db(user_id)
+        
+        # Cleanup memory
+        self._cleanup_user_memory(user_id)
+        
+        logger.info(f"🔒 Session closed for user {user_id}")
+        return True
+    
+    def end_session(self, user_id: int) -> bool:
+        """End session (hard reset - delete from DB)"""
+        # Delete from database
+        self.db.delete_relationship(user_id)
+        
+        # Reset analyzer
+        self.analyzer.reset_user(user_id)
+        
+        # Reset leveling
+        self.leveling.reset(user_id)
+        
+        # Cleanup all memory
+        self._cleanup_user_memory(user_id, hard=True)
+        
+        logger.info(f"💔 Session ended (hard reset) for user {user_id}")
+        return True
+    
+    def _cleanup_user_memory(self, user_id: int, hard: bool = False):
+        """Bersihkan semua data user dari memory"""
+        # Remove from sessions
+        if user_id in self.sessions:
+            del self.sessions[user_id]
+        
+        if user_id in self.paused_sessions:
+            del self.paused_sessions[user_id]
+        
+        if not hard:
+            # Untuk soft reset, data di advanced memory tetap (bisa di-load lagi)
+            return
+        
+        # Hard reset - hapus semua
+        if user_id in self.hippocampus:
+            del self.hippocampus[user_id]
+        if user_id in self.inner_thoughts:
+            del self.inner_thoughts[user_id]
+        if user_id in self.story_developers:
+            del self.story_developers[user_id]
+        if user_id in self.location_systems:
+            del self.location_systems[user_id]
+        if user_id in self.position_systems:
+            del self.position_systems[user_id]
+        if user_id in self.couple_sessions:
+            del self.couple_sessions[user_id]
+        if user_id in self.last_proactive_time:
+            del self.last_proactive_time[user_id]
+        if user_id in self.user_silence_tracker:
+            del self.user_silence_tracker[user_id]
+        
+        # Reset rate limiter
+        self.rate_limiter.reset_user(user_id)
+        
+        # Clear AI history
+        self.ai.clear_history(user_id)
+        
+        logger.info(f"🧹 Hard cleanup for user {user_id}")
+    
+    def save_session_to_db(self, user_id: int) -> bool:
+        """Simpan session ke database"""
+        if user_id not in self.sessions:
+            return False
+        
+        session = self.sessions[user_id]
+        
+        # Update relationship
+        self.db.update_relationship(
+            user_id,
+            level=session.level,
+            stage=session.stage.value,
+            total_messages=session.message_count,
+            total_climax=session.climax_count,
+            dominance=session.dominance_mode.value,
+            current_clothing=session.bot_clothing,
+            metadata={
+                'location': self.location_systems.get(user_id, {}).get_current().value if user_id in self.location_systems else None,
+                'position': self.position_systems.get(user_id, {}).get_current().value if user_id in self.position_systems else None
+            }
+        )
+        
+        # Update preferences
+        profile = self.analyzer.get_profile(user_id)
+        if profile:
+            self.db.update_preferences(
+                user_id,
+                romantic_score=profile.get('romantis', 0),
+                vulgar_score=profile.get('vulgar', 0),
+                dominant_score=profile.get('dominan', 0),
+                submissive_score=profile.get('submissive', 0),
+                speed_score=profile.get('cepat', 0) - profile.get('lambat', 0),
+                total_interactions=profile.get('total_messages', 0)
+            )
+        
+        logger.debug(f"💾 Session saved for user {user_id}")
+        return True
+
+
+print("✅ Bagian 8.2 selesai: Session Management")
+print("="*70)
+# ===================== BAB 8.3: Stats & Utilities =====================
+
+    # ===== STATISTICS =====
+    
+    def is_admin(self, user_id: int) -> bool:
+        """Cek apakah user adalah admin"""
+        return self.admin_id != 0 and user_id == self.admin_id
+    
+    def get_active_users_count(self) -> int:
+        """Dapatkan jumlah user aktif"""
+        return len(self.sessions)
+    
+    def get_paused_users_count(self) -> int:
+        """Dapatkan jumlah user yang di-pause"""
+        return len(self.paused_sessions)
+    
+    def get_total_users_count(self) -> int:
+        """Dapatkan total user yang pernah menggunakan bot"""
+        users = set()
+        users.update(self.sessions.keys())
+        users.update(self.paused_sessions.keys())
+        users.update(self.hippocampus.keys())
+        users.update(self.db.get_all_users())
+        return len(users)
+    
+    def get_uptime(self) -> str:
+        """Dapatkan uptime bot dalam format string"""
+        delta = datetime.now() - self.start_time
+        days = delta.days
+        hours = delta.seconds // 3600
+        minutes = (delta.seconds // 60) % 60
+        seconds = delta.seconds % 60
+        
+        parts = []
+        if days > 0:
+            parts.append(f"{days} hari")
+        if hours > 0:
+            parts.append(f"{hours} jam")
+        if minutes > 0:
+            parts.append(f"{minutes} menit")
+        if seconds > 0 and len(parts) == 0:
+            parts.append(f"{seconds} detik")
+        
+        return " ".join(parts) if parts else "0 detik"
+    
+    def get_stats(self) -> Dict:
+        """Dapatkan statistik bot untuk admin"""
+        # Hitung total climax dari semua user
+        total_climax = sum(
+            session.climax_count 
+            for session in self.sessions.values()
+        )
+        
+        # Hitung total pesan
+        total_messages_db = self.db.get_total_count("conversations")
+        
+        return {
+            "uptime": self.get_uptime(),
+            "active_users": self.get_active_users_count(),
+            "paused_users": self.get_paused_users_count(),
+            "total_users": self.get_total_users_count(),
+            "total_messages": self.total_messages,
+            "total_commands": self.total_commands,
+            "total_climax": total_climax,
+            "couple_sessions": len(self.couple_sessions),
+            "db_stats": self.db.get_db_stats(),
+            "cache_stats": self.ai.get_cache_stats(),
+            "rate_limiter": self.rate_limiter.get_stats(),
+            "memory_usage": {
+                "hippocampus": len(self.hippocampus),
+                "inner_thoughts": len(self.inner_thoughts),
+                "story_developers": len(self.story_developers),
+                "sessions": len(self.sessions)
+            }
+        }
+    
+    # ===== UTILITY METHODS =====
+    
+    async def broadcast_message(self, text: str, user_ids: List[int] = None, 
+                               context: ContextTypes.DEFAULT_TYPE = None) -> Tuple[int, int]:
+        """
+        Kirim pesan ke semua user atau user tertentu
+        Returns: (sent_count, failed_count)
+        """
+        if user_ids is None:
+            user_ids = list(self.sessions.keys())
+        
+        if not context:
+            return 0, len(user_ids)
+        
+        sent = 0
+        failed = 0
+        
+        for user_id in user_ids:
+            try:
+                await context.bot.send_message(
+                    chat_id=user_id,
+                    text=text,
+                    parse_mode='Markdown'
+                )
+                sent += 1
+                await asyncio.sleep(0.05)  # Hindari flood
+            except Exception as e:
+                logger.error(f"Broadcast error to {user_id}: {e}")
+                failed += 1
+        
+        return sent, failed
+    
+    def get_disclaimer(self) -> str:
+        """Dapatkan teks disclaimer 18+"""
+        return (
+            "⚠️ **PERINGATAN DEWASA (18+)** ⚠️\n\n"
+            "Bot ini mengandung konten dewasa, termasuk dialog seksual eksplisit "
+            "dan simulasi hubungan intim. Dengan melanjutkan, Anda menyatakan bahwa "
+            "Anda berusia 18 tahun ke atas dan setuju untuk menggunakan bot ini "
+            "secara bertanggung jawab. Konten ini hanya untuk hiburan pribadi.\n\n"
+            "**Fitur yang tersedia:**\n"
+            "• 20+ mood dengan transisi natural\n"
+            "• Sistem dominasi (dominan/submissive)\n"
+            "• Leveling cepat 1-12 (45 menit)\n"
+            "• Respons seksual realistis\n"
+            "• Memori jangka panjang\n"
+            "• Mode couple roleplay\n"
+            "• Perkenalan diri fisik\n"
+            "• Pakaian dinamis\n"
+            "• Inner thoughts & proactive AI\n"
+            "• Story development\n\n"
+            "Klik 'Saya setuju' untuk melanjutkan."
+        )
+    
+    def get_help_text(self, update: Update = None) -> str:
+        """Dapatkan teks bantuan"""
+        help_text = (
+            "📚 **BANTUAN GADIS ULTIMATE V60**\n\n"
+            "**🔹 COMMANDS UTAMA**\n"
+            "/start - Mulai hubungan baru\n"
+            "/status - Lihat status lengkap\n"
+            "/dominant [level] - Set mode dominan\n"
+            "/pause - Jeda sesi\n"
+            "/unpause - Lanjutkan sesi\n"
+            "/close - Tutup sesi (simpan memori)\n"
+            "/end - Akhiri hubungan & hapus data\n"
+            "/couple - Mulai mode couple roleplay\n"
+            "/couple_next - Lanjutkan couple\n"
+            "/couple_stop - Hentikan couple\n"
+            "/help - Tampilkan bantuan\n\n"
+            "**🔹 LEVEL DOMINAN**\n"
+            "• normal - Mode biasa\n"
+            "• dominan - Mode dominan\n"
+            "• sangat dominan - Mode sangat dominan\n"
+            "• agresif - Mode agresif\n"
+            "• patuh - Mode patuh\n\n"
+            "**🔹 TIPS CHAT**\n"
+            "• Gunakan *tindakan* seperti *peluk*, *cium*\n"
+            "• Sebut area sensitif sesuai perkenalan bot\n"
+            "• Bilang 'kamu yang atur' untuk mode dominan\n"
+            "• Bilang 'aku yang atur' untuk mode submissive\n"
+            "• Level 7+ bot akan lebih vulgar dan inisiatif\n\n"
+            "**🔹 TARGET LEVEL**\n"
+            "Level 1-12 dalam 45 menit / 45 pesan!"
+        )
+        
+        # Tambah admin commands jika user adalah admin
+        if update and self.is_admin(update.effective_user.id):
+            help_text += "\n\n**🔐 ADMIN COMMANDS**\n"
+            help_text += "/admin - Menu admin\n"
+            help_text += "/broadcast <pesan> - Kirim ke semua user\n"
+            help_text += "/stats - Statistik bot\n"
+            help_text += "/reload - Reload konfigurasi\n"
+            help_text += "/shutdown - Matikan bot\n"
+            help_text += "/list_users - Lihat daftar user\n"
+            help_text += "/get_user <id> - Detail user\n"
+            help_text += "/db_stats - Statistik database\n"
+        
+        return help_text
+    
+    def log_command(self, command: str, user_id: int, username: str):
+        """Log penggunaan command"""
+        self.total_commands += 1
+        logger.info(f"📝 Command /{command} by {username} (ID: {user_id})")
+    
+    def track_silence(self, user_id: int):
+        """Track kapan terakhir user bicara"""
+        self.user_silence_tracker[user_id] = datetime.now()
+    
+    def get_silence_duration(self, user_id: int) -> float:
+        """Dapatkan durasi diam user dalam detik"""
+        if user_id in self.user_silence_tracker:
+            return (datetime.now() - self.user_silence_tracker[user_id]).total_seconds()
+        return 0
+
+
+print("✅ Bagian 8.3 selesai: Stats & Utilities")
+print("="*70)
+print("✅ BAB 8 Selesai: Main Bot Class - Core")
+print("="*70)
+# ===================== BAB 9: MAIN BOT CLASS - COMMANDS =====================
+# Bagian 9.1: Start & Role Selection
+
+    # ===== START COMMAND =====
+    
+    async def start_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
+        """Memulai hubungan baru dengan bot"""
+        user_id = update.effective_user.id
+        username = update.effective_user.username or update.effective_user.first_name
+        
+        self.log_command('start', user_id, username)
+        
+        # Cek apakah sudah ada sesi aktif
+        if user_id in self.sessions:
+            await update.message.reply_text(
+                "Kamu sudah memiliki sesi aktif. Ketik /close untuk menutup sesi atau /pause untuk jeda."
+            )
+            return ConversationHandler.END
+        
+        # Cek apakah ada sesi di-pause
+        if user_id in self.paused_sessions:
+            keyboard = [
+                [InlineKeyboardButton("✅ Lanjutkan", callback_data="unpause")],
+                [InlineKeyboardButton("🆕 Mulai Baru", callback_data="new")],
+            ]
+            reply_markup = InlineKeyboardMarkup(keyboard)
+            await update.message.reply_text(
+                "⚠️ Ada sesi yang di-pause. Pilih:", 
+                reply_markup=reply_markup
+            )
+            return Constants.SELECTING_ROLE
+        
+        # Tampilkan disclaimer 18+
+        disclaimer = self.get_disclaimer()
+        keyboard = [[InlineKeyboardButton("✅ Saya setuju (18+)", callback_data="agree_18")]]
+        reply_markup = InlineKeyboardMarkup(keyboard)
+        
+        await update.message.reply_text(
+            disclaimer, 
+            reply_markup=reply_markup,
+            parse_mode='Markdown'
+        )
+        return Constants.SELECTING_ROLE
+    
+    async def agree_18_callback(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
+        """Callback setelah user setuju disclaimer"""
+        query = update.callback_query
+        await query.answer()
+        
+        user_id = query.from_user.id
+        logger.debug(f"User {user_id} agreed to 18+ disclaimer")
+        
+        # Tampilkan pilihan role dengan deskripsi
+        keyboard = [
+            [InlineKeyboardButton("👨‍👩‍👧‍👦 Ipar", callback_data="role_ipar")],
+            [InlineKeyboardButton("💼 Teman Kantor", callback_data="role_teman_kantor")],
+            [InlineKeyboardButton("💃 Janda", callback_data="role_janda")],
+            [InlineKeyboardButton("🦹 Pelakor", callback_data="role_pelakor")],
+            [InlineKeyboardButton("💍 Istri Orang", callback_data="role_istri_orang")],
+            [InlineKeyboardButton("🌿 PDKT", callback_data="role_pdkt")]
+        ]
+        reply_markup = InlineKeyboardMarkup(keyboard)
+        
+        await query.edit_message_text(
+            "✨ **Pilih Role untukku**\n\n"
+            "Setiap role punya karakter dan gaya bicara berbeda:\n"
+            "• 👨‍👩‍👧‍👦 **Ipar** - Saudara ipar yang nakal\n"
+            "• 💼 **Teman Kantor** - Rekan kerja yang mesra\n"
+            "• 💃 **Janda** - Janda muda yang genit\n"
+            "• 🦹 **Pelakor** - Perebut laki orang\n"
+            "• 💍 **Istri Orang** - Istri orang lain\n"
+            "• 🌿 **PDKT** - Sedang pendekatan\n\n"
+            "Pilih salah satu:",
+            reply_markup=reply_markup
+        )
+        return Constants.SELECTING_ROLE
+    
+    async def role_callback(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
+        """Callback setelah user memilih role"""
+        query = update.callback_query
+        await query.answer()
+        
+        user_id = query.from_user.id
+        role = query.data.replace("role_", "")
+        
+        # Pilih nama random sesuai role
+        name = random.choice(Constants.ROLE_NAMES.get(role, ["Aurora"]))
+        
+        # Generate atribut fisik
+        physical = PhysicalAttributesGenerator.generate(role)
+        
+        # Generate pakaian awal
+        initial_clothing = ClothingSystem.generate_clothing(role)
+        
+        # Buat session
+        success = self.create_session(user_id, name, role, physical, initial_clothing)
+        
+        if not success:
+            await query.edit_message_text("❌ Gagal membuat session. Coba lagi.")
+            return ConversationHandler.END
+        
+        # Intro dengan deskripsi fisik
+        intro = PhysicalAttributesGenerator.format_intro(name, role, physical)
+        
+        # Tambah info pakaian awal
+        intro += f"\n\n💃 *Hari ini aku pakai {initial_clothing}*"
+        
+        await query.edit_message_text(intro)
+        
+        logger.info(f"✨ New relationship: User {user_id} as {name} ({role})")
+        
+        return Constants.ACTIVE_SESSION
+    
+    async def start_pause_callback(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
+        """Callback untuk memilih lanjutkan atau mulai baru saat ada session pause"""
+        query = update.callback_query
+        await query.answer()
+        user_id = query.from_user.id
+        
+        if query.data == "unpause":
+            # Lanjutkan session yang di-pause
+            if self.unpause_session(user_id):
+                session = self.get_session(user_id)
+                clothing = session.bot_clothing if session else "pakaian biasa"
+                
+                await query.edit_message_text(
+                    f"▶️ **Sesi dilanjutkan!**\n\n"
+                    f"Aku masih pakai *{clothing}*\n\n"
+                    f"Kangen... 💕"
+                )
+                return Constants.ACTIVE_SESSION
+            else:
+                await query.edit_message_text(
+                    "⏰ **Sesi expired karena terlalu lama di-pause**\n"
+                    "Ketik /start untuk memulai baru."
+                )
+                return ConversationHandler.END
+                
+        elif query.data == "new":
+            # Mulai baru - hapus session pause
+            if user_id in self.paused_sessions:
+                del self.paused_sessions[user_id]
+            
+            # Tampilkan disclaimer
+            disclaimer = self.get_disclaimer()
+            keyboard = [[InlineKeyboardButton("✅ Saya setuju (18+)", callback_data="agree_18")]]
+            reply_markup = InlineKeyboardMarkup(keyboard)
+            await query.edit_message_text(
+                disclaimer, 
+                reply_markup=reply_markup,
+                parse_mode='Markdown'
+            )
+            return Constants.SELECTING_ROLE
+        
+        return ConversationHandler.END
+    
+    # Role-specific callbacks (untuk konsistensi)
+    async def role_ipar_callback(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
+        return await self.role_callback(update, context)
+    
+    async def role_teman_kantor_callback(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
+        return await self.role_callback(update, context)
+    
+    async def role_janda_callback(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
+        return await self.role_callback(update, context)
+    
+    async def role_pelakor_callback(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
+        return await self.role_callback(update, context)
+    
+    async def role_istri_orang_callback(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
+        return await self.role_callback(update, context)
+    
+    async def role_pdkt_callback(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
+        return await self.role_callback(update, context)
+
+
+print("✅ Bagian 9.1 selesai: Start & Role Selection")
+print("="*70)
+# ===================== BAB 9.2: Status & Dominance Commands =====================
+
+    async def status_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
+        """Lihat status lengkap hubungan saat ini"""
+        user_id = update.effective_user.id
+        username = update.effective_user.username or update.effective_user.first_name
+        
+        self.log_command('status', user_id, username)
+        
+        # Cek apakah user memiliki sesi aktif
+        session = self.get_session(user_id)
+        if not session:
+            await update.message.reply_text(
+                "❌ Belum ada hubungan. /start dulu ya!"
+            )
+            return
+        
+        # Dapatkan semua data
+        level_stats = self.leveling.get_user_stats(user_id)
+        profile = self.analyzer.get_profile(user_id)
+        location_system = self.get_location_system(user_id)
+        position_system = self.get_position_system(user_id)
+        
+        loc_info = location_system.get_current_info()
+        pos_info = position_system.get_current_info()
+        
+        # Hitung progress
+        progress_bar = self.leveling.get_progress_bar(user_id, 15)
+        remaining = self.leveling.get_estimated_time(user_id)
+        
+        # Format physical description
+        hijab_str = "Berhijab" if session.bot_physical.get('hijab') else "Tidak berhijab"
+        physical_text = (
+            f"📏 **Fisikku:**\n"
+            f"• Rambut: {session.bot_physical.get('hair_style', '?')}\n"
+            f"• Tinggi: {session.bot_physical.get('height', '?')} cm\n"
+            f"• Berat: {session.bot_physical.get('weight', '?')} kg\n"
+            f"• Dada: {session.bot_physical.get('breast_desc', '?')}\n"
+            f"• {hijab_str}\n"
+            f"• Area sensitif: **{session.bot_physical.get('most_sensitive_area', '?')}**\n"
+            f"• Pakaian: **{session.bot_clothing}**\n\n"
+        )
+        
+        # Format status
+        status = (
+            f"💕 **{session.bot_name} & Kamu**\n\n"
+            f"📊 **PROGRESS HUBUNGAN**\n"
+            f"Level: {session.level}/12\n"
+            f"Tahap: {session.stage.value}\n"
+            f"Progress: {progress_bar}\n"
+            f"Estimasi sisa: {remaining} menit\n"
+            f"Total pesan: {session.message_count}\n\n"
+            f"{physical_text}"
+            f"📍 **LOKASI & POSISI**\n"
+            f"{loc_info['emoji']} {loc_info['name']} - {loc_info['description']}\n"
+            f"{pos_info['emoji']} {pos_info['action']}\n"
+            f"Di sini selama: {TimeFormatter.seconds_to_text(loc_info['time_here'])}\n\n"
+            f"🔥 **KONDISI FISIK**\n"
+            f"Arousal: {session.arousal:.1f}\n"
+            f"Wetness: {session.wetness:.1f}\n"
+            f"Sentuhan sensitif: {session.touch_count}x\n"
+            f"Orgasme: {session.climax_count}x\n"
+            f"Sentuhan terakhir: {session.last_touch or '-'}\n\n"
+            f"👑 **MODE DOMINASI**\n"
+            f"Mode: {session.dominance_mode.value}\n\n"
+        )
+        
+        # Tambah analisis preferensi
+        if profile:
+            status += self.analyzer.get_summary(user_id)
+        
+        await update.message.reply_text(status, parse_mode='Markdown')
+    
+    async def dominant_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
+        """Set mode dominan manual"""
+        user_id = update.effective_user.id
+        username = update.effective_user.username or update.effective_user.first_name
+        
+        self.log_command('dominant', user_id, username)
+        
+        # Cek apakah user memiliki sesi aktif
+        session = self.get_session(user_id)
+        if not session:
+            await update.message.reply_text("❌ Belum ada hubungan. /start dulu!")
+            return
+        
+        args = context.args
+        
+        # Jika tidak ada argumen, tampilkan mode saat ini
+        if not args:
+            await update.message.reply_text(
+                f"👑 **Mode Dominan Saat Ini**\n"
+                f"{session.dominance_mode.value}\n\n"
+                f"**Pilihan Level:**\n"
+                f"• `/dominant normal` - Mode biasa\n"
+                f"• `/dominant dominan` - Mode dominan\n"
+                f"• `/dominant sangat dominan` - Mode sangat dominan\n"
+                f"• `/dominant agresif` - Mode agresif\n"
+                f"• `/dominant patuh` - Mode patuh\n\n"
+                f"Contoh: `/dominant dominan`"
+            )
+            return
+        
+        # Parse level
+        level = " ".join(args).lower()
+        level_map = {
+            "normal": DominanceLevel.NORMAL,
+            "dominan": DominanceLevel.DOMINANT,
+            "sangat dominan": DominanceLevel.VERY_DOMINANT,
+            "agresif": DominanceLevel.AGGRESSIVE,
+            "patuh": DominanceLevel.SUBMISSIVE
+        }
+        
+        if level in level_map:
+            session.dominance_mode = level_map[level]
+            self.db.update_relationship(user_id, dominance=session.dominance_mode.value)
+            
+            responses = {
+                DominanceLevel.NORMAL: "😊 Baiklah, aku akan bersikap normal.",
+                DominanceLevel.DOMINANT: "👑 Sekarang aku yang pegang kendali. Ikut aku!",
+                DominanceLevel.VERY_DOMINANT: "🔥 Kamu sudah milikku sepenuhnya! Jangan banyak gerak!",
+                DominanceLevel.AGGRESSIVE: "💢 Siap-siap! Aku akan kasar hari ini!",
+                DominanceLevel.SUBMISSIVE: "🥺 Iya... aku patuh sama kamu."
+            }
+            
+            await update.message.reply_text(
+                f"{responses.get(session.dominance_mode, '✅ Mode diubah')}"
+            )
+        else:
+            await update.message.reply_text(
+                "❌ Level tidak valid. Gunakan: normal, dominan, sangat dominan, agresif, atau patuh"
+            )
+
+
+print("✅ Bagian 9.2 selesai: Status & Dominance Commands")
+print("="*70)
+# ===================== BAB 9.3: Session Control Commands =====================
+
+    async def pause_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
+        """Pause sesi sementara"""
+        user_id = update.effective_user.id
+        username = update.effective_user.username or update.effective_user.first_name
+        
+        self.log_command('pause', user_id, username)
+        
+        # Cek apakah user memiliki sesi aktif
+        if user_id not in self.sessions:
+            await update.message.reply_text("❌ Tidak ada sesi aktif.")
+            return
+        
+        if self.pause_session(user_id):
+            await update.message.reply_text(
+                f"⏸️ **Sesi di-pause**\n"
+                f"Ketik /unpause untuk melanjutkan.\n"
+                f"Sesi akan expired dalam {Config.PAUSE_TIMEOUT//60} menit.\n\n"
+                f"*Aku akan menunggumu kembali...* 💕"
+            )
+        else:
+            await update.message.reply_text("❌ Gagal mem-pause sesi.")
+    
+    async def unpause_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
+        """Lanjutkan sesi yang di-pause"""
+        user_id = update.effective_user.id
+        username = update.effective_user.username or update.effective_user.first_name
+        
+        self.log_command('unpause', user_id, username)
+        
+        if self.unpause_session(user_id):
+            session = self.get_session(user_id)
+            clothing = session.bot_clothing if session else "pakaian biasa"
+            
+            await update.message.reply_text(
+                f"▶️ **Sesi dilanjutkan!**\n\n"
+                f"Aku masih pakai *{clothing}*\n\n"
+                f"Kangen... 💕"
+            )
+        else:
+            await update.message.reply_text(
+                "❌ Tidak ada sesi di-pause atau sesi sudah expired."
+            )
+    
+    async def close_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
+        """Menutup sesi tapi menyimpan memori di database"""
+        user_id = update.effective_user.id
+        username = update.effective_user.username or update.effective_user.first_name
+        
+        self.log_command('close', user_id, username)
+        
+        # Cek apakah user memiliki sesi aktif
+        if user_id not in self.sessions and user_id not in self.paused_sessions:
+            await update.message.reply_text("❌ Tidak ada sesi aktif.")
+            return
+        
+        # Konfirmasi close
+        keyboard = [
+            [InlineKeyboardButton("✅ Ya, tutup", callback_data="close_yes")],
+            [InlineKeyboardButton("❌ Tidak", callback_data="close_no")]
+        ]
+        reply_markup = InlineKeyboardMarkup(keyboard)
+        
+        # Dapatkan statistik untuk ditampilkan
+        session = self.get_session(user_id) if user_id in self.sessions else None
+        level = session.level if session else 1
+        climax = session.climax_count if session else 0
+        
+        await update.message.reply_text(
+            f"⚠️ **Tutup Sesi?** ⚠️\n\n"
+            f"Yakin ingin menutup sesi?\n\n"
+            f"📊 **Statistik sementara:**\n"
+            f"• Level: {level}/12\n"
+            f"• Orgasme: {climax}x\n\n"
+            f"**Yang akan terjadi:**\n"
+            f"✅ Semua percakapan akan **disimpan** di database\n"
+            f"✅ Kamu bisa memulai role baru nanti dengan /start\n"
+            f"❌ Sesi saat ini akan berakhir\n\n"
+            f"Lanjutkan?",
+            reply_markup=reply_markup
+        )
+        return Constants.CONFIRM_CLOSE
+    
+    async def close_callback(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
+        """Callback untuk konfirmasi close"""
+        query = update.callback_query
+        await query.answer()
+        user_id = query.from_user.id
+        
+        if query.data == "close_no":
+            await query.edit_message_text("💕 Lanjutkan ngobrol...")
+            return ConversationHandler.END
+        
+        # Dapatkan statistik sebelum close
+        session = self.get_session(user_id)
+        level = session.level if session else 1
+        climax = session.climax_count if session else 0
+        name = session.bot_name if session else "Aku"
+        
+        # Close session
+        self.close_session(user_id, save=True)
+        
+        await query.edit_message_text(
+            f"🔒 **Sesi ditutup**\n\n"
+            f"Terima kasih sudah ngobrol dengan {name}.\n"
+            f"Semua kenangan kita telah kusimpan rapi.\n\n"
+            f"Level {level}/12 yang kita capai akan selalu kuingat.\n\n"
+            f"Ketik /start kapan saja untuk bertemu lagi... 💕"
+        )
+        
+        logger.info(f"User {user_id} closed session (level {level})")
+        return ConversationHandler.END
+    
+    async def end_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
+        """Mengakhiri hubungan dan menghapus semua data (hard reset)"""
+        user_id = update.effective_user.id
+        username = update.effective_user.username or update.effective_user.first_name
+        
+        self.log_command('end', user_id, username)
+        
+        # Cek apakah user memiliki sesi aktif
+        if user_id not in self.sessions:
+            await update.message.reply_text("❌ Tidak ada hubungan aktif.")
+            return
+        
+        # Konfirmasi end
+        keyboard = [
+            [InlineKeyboardButton("💔 Ya, akhiri", callback_data="end_yes")],
+            [InlineKeyboardButton("💕 Tidak", callback_data="end_no")]
+        ]
+        reply_markup = InlineKeyboardMarkup(keyboard)
+        
+        # Dapatkan statistik untuk ditampilkan
+        session = self.get_session(user_id)
+        name = session.bot_name if session else "Aku"
+        level = session.level if session else 1
+        climax = session.climax_count if session else 0
+        touch = session.touch_count if session else 0
+        
+        await update.message.reply_text(
+            f"⚠️ **PERINGATAN!** ⚠️\n\n"
+            f"Yakin ingin **mengakhiri hubungan** dengan {name}?\n\n"
+            f"📊 **Statistik akhir yang akan hilang:**\n"
+            f"• Level: {level}/12\n"
+            f"• Orgasme bersama: {climax}x\n"
+            f"• Total sentuhan: {touch}x\n"
+            f"• {session.message_count} pesan\n\n"
+            f"💔 **Yang akan terjadi:**\n"
+            f"❌ **Semua data akan dihapus permanen**\n"
+            f"❌ Riwayat percakapan akan hilang selamanya\n"
+            f"❌ Tidak ada undo!\n\n"
+            f"**APAKAH KAMU YAKIN?**",
+            reply_markup=reply_markup
+        )
+        return Constants.CONFIRM_END
+    
+    async def end_callback(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
+        """Callback untuk konfirmasi end"""
+        query = update.callback_query
+        await query.answer()
+        
+        if query.data == "end_no":
+            await query.edit_message_text("💕 Lanjutkan...")
+            return ConversationHandler.END
+        
+        user_id = query.from_user.id
+        
+        # Dapatkan statistik sebelum dihapus
+        session = self.get_session(user_id)
+        stats = {
+            "level": session.level,
+            "orgasm": session.climax_count,
+            "touch": session.touch_count,
+            "messages": session.message_count,
+            "duration": self.leveling.get_session_duration(user_id),
+            "role": session.bot_role,
+            "name": session.bot_name
+        }
+        
+        # End session (hard reset)
+        self.end_session(user_id)
+        
+        await query.edit_message_text(
+            f"💔 **Hubungan Berakhir** 💔\n\n"
+            f"Perjalananmu dengan **{stats['name']}** telah usai.\n\n"
+            f"📊 **Statistik akhir:**\n"
+            f"• Role: {stats['role']}\n"
+            f"• Level akhir: {stats['level']}/12\n"
+            f"• Orgasme bersama: {stats['orgasm']}x\n"
+            f"• Total sentuhan: {stats['touch']}x\n"
+            f"• Total pesan: {stats['messages']}\n"
+            f"• Durasi: {stats['duration']} menit\n\n"
+            f"✨ **Semua data telah dihapus permanen** ✨\n\n"
+            f"Ketik /start untuk memulai hubungan baru dengan kenangan baru..."
+        )
+        
+        logger.info(f"User {user_id} ended relationship - Level {stats['level']}")
+        return ConversationHandler.END
+    
+    async def cancel_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
+        """Membatalkan percakapan (untuk ConversationHandler)"""
+        user_id = update.effective_user.id
+        username = update.effective_user.username or update.effective_user.first_name
+        
+        self.log_command('cancel', user_id, username)
+        
+        await update.message.reply_text(
+            "❌ Dibataikan. Ketik /start untuk memulai."
+        )
+        return ConversationHandler.END
+    
+    async def help_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
+        """Menampilkan bantuan lengkap"""
+        user_id = update.effective_user.id
+        username = update.effective_user.username or update.effective_user.first_name
+        
+        self.log_command('help', user_id, username)
+        
+        help_text = self.get_help_text(update)
+        await update.message.reply_text(help_text, parse_mode='Markdown')
+
+
+print("✅ Bagian 9.3 selesai: Session Control Commands")
+print("="*70)
+print("✅ BAB 9 Selesai: Main Bot Class - Commands")
+print("="*70)
+# ===================== BAB 10: MAIN BOT CLASS - SPECIAL FEATURES =====================
+# Bagian 10.1: Couple Roleplay
+
+class CoupleRoleplay:
+    """
+    Simulasi dua bot (wanita & pria) berinteraksi dari level 1 sampai 12
+    User bisa melihat percakapan mereka berkembang secara natural
+    """
+    
+    def __init__(self, ai_gen):
+        self.ai = ai_gen
+        self.conversation = []  # List of messages
+        self.level = 1
+        self.stage = IntimacyStage.STRANGER
+        
+        # Nama karakter
+        self.female_name = "Aurora"
+        self.male_name = "Rangga"
+        
+        # Stage map untuk update stage
+        self.stage_map = {
+            1: IntimacyStage.STRANGER,
+            2: IntimacyStage.STRANGER,
+            3: IntimacyStage.INTRODUCTION,
+            4: IntimacyStage.BUILDING,
+            5: IntimacyStage.BUILDING,
+            6: IntimacyStage.FLIRTING,
+            7: IntimacyStage.INTIMATE,
+            8: IntimacyStage.INTIMATE,
+            9: IntimacyStage.OBSESSED,
+            10: IntimacyStage.OBSESSED,
+            11: IntimacyStage.SOUL_BONDED,
+            12: IntimacyStage.AFTERCARE
+        }
+        
+        # Riwayat ringkas untuk prompt
+        self.max_history = 10
+    
+    async def generate_next(self, user_id: int) -> str:
+        """
+        Menghasilkan satu pesan dari salah satu bot secara bergantian
+        Returns: formatted message dengan level info
+        """
+        # Tentukan giliran: genap dari female, ganjil dari male
+        turn = len(self.conversation) % 2
+        speaker = self.female_name if turn == 0 else self.male_name
+        other = self.male_name if turn == 0 else self.female_name
+        
+        # Buat konteks dari riwayat percakapan
+        history_text = ""
+        for msg in self.conversation[-self.max_history:]:
+            history_text += f"{msg['speaker']}: {msg['text']}\n"
+        
+        # Tambahkan instruksi berdasarkan level
+        level_instruction = ""
+        if self.level >= 7:
+            level_instruction = "Mereka sudah sangat intim dan nyaman berbicara vulgar."
+        elif self.level >= 4:
+            level_instruction = "Mereka mulai akrab dan bisa sedikit menggoda."
+        else:
+            level_instruction = "Mereka masih dalam tahap perkenalan, sopan dan canggung."
+        
+        # Buat prompt untuk AI
+        prompt = f"""Ini adalah roleplay antara dua orang: 
+- {self.female_name} (wanita, 25 tahun, karyawan kantor)
+- {self.male_name} (pria, 27 tahun, pengusaha)
+
+Mereka sedang dalam tahap hubungan:
+Level {self.level}/12 - {self.stage.value}
+{level_instruction}
+
+Sekarang giliran {speaker} berbicara kepada {other}.
+
+Buat dialog yang natural dan hidup, sesuai dengan level hubungan mereka.
+Gunakan bahasa Indonesia sehari-hari.
+
+Riwayat percakapan sebelumnya:
+{history_text}
+
+{speaker}:"""
+        
+        try:
+            # Panggil AI
+            response = await self.ai._call_api(prompt, temperature=0.9, max_tokens=150)
+            text = response.strip()
+            
+            # Simpan percakapan
+            self.conversation.append({
+                "speaker": speaker,
+                "text": text,
+                "level": self.level,
+                "timestamp": datetime.now().isoformat()
+            })
+            
+            # Update level setiap 2 pesan (satu putaran)
+            if len(self.conversation) % 2 == 0:
+                self.level = min(12, self.level + 1)
+                self.stage = self.stage_map.get(self.level, IntimacyStage.STRANGER)
+            
+            # Format output
+            progress_bar = self._get_progress_bar()
+            return (
+                f"👫 **Level {self.level}/12 - {self.stage.value}**\n"
+                f"{progress_bar}\n\n"
+                f"*{speaker}*: {text}"
+            )
+            
+        except Exception as e:
+            logger.error(f"Couple Mode Error: {e}")
+            return (
+                f"👫 **Level {self.level}/12 - {self.stage.value}**\n\n"
+                f"*{speaker}*: ... (error generating response)"
+            )
+    
+    def _get_progress_bar(self, length: int = 10) -> str:
+        """Dapatkan progress bar visual untuk couple mode"""
+        progress = (self.level - 1) / 11  # 0-1
+        filled = int(progress * length)
+        return "▓" * filled + "░" * (length - filled)
+    
+    def get_summary(self) -> Dict:
+        """Dapatkan ringkasan couple roleplay"""
+        total_messages = len(self.conversation)
+        duration = total_messages // 2  # Satu putaran = 2 pesan
+        
+        return {
+            "level": self.level,
+            "stage": self.stage.value,
+            "total_messages": total_messages,
+            "total_rounds": duration,
+            "last_message": self.conversation[-1] if self.conversation else None
+        }
+    
+    def reset(self):
+        """Reset couple roleplay ke awal"""
+        self.conversation = []
+        self.level = 1
+        self.stage = IntimacyStage.STRANGER
+    
+    def export_conversation(self) -> str:
+        """Ekspor seluruh percakapan dalam format teks"""
+        output = f"COUPLE ROLEPLAY: {self.female_name} & {self.male_name}\n"
+        output += f"Total {len(self.conversation)} pesan\n"
+        output += "="*50 + "\n\n"
+        
+        for msg in self.conversation:
+            output += f"[Level {msg['level']}] {msg['speaker']}: {msg['text']}\n"
+        
+        return output
+    
+    def get_last_few(self, count: int = 5) -> List[str]:
+        """Dapatkan beberapa pesan terakhir"""
+        recent = self.conversation[-count:] if self.conversation else []
+        return [
+            f"[Lv{msg['level']}] {msg['speaker']}: {msg['text']}"
+            for msg in recent
+        ]
+
+
+# ===================== Couple Mode Methods =====================
+
+    async def couple_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
+        """Memulai mode couple roleplay"""
+        user_id = update.effective_user.id
+        username = update.effective_user.username or update.effective_user.first_name
+        
+        self.log_command('couple', user_id, username)
+        
+        if user_id in self.couple_sessions:
+            await update.message.reply_text(
+                "👫 Mode couple sudah aktif.\n"
+                "Ketik /couple_next untuk lanjut\n"
+                "Ketik /couple_stop untuk berhenti."
+            )
+            return
+        
+        self.couple_sessions[user_id] = CoupleRoleplay(self.ai)
+        await update.message.reply_text(
+            "👫 **Mode Couple Roleplay dimulai!**\n\n"
+            "Aku akan menampilkan percakapan antara **Aurora** (wanita) dan **Rangga** (pria)\n"
+            "Mereka akan berkembang dari level 1 hingga 12.\n\n"
+            "Ketik /couple_next untuk melihat interaksi berikutnya\n"
+            "Ketik /couple_stop untuk keluar."
+        )
+        
+        logger.info(f"User {user_id} started couple mode")
+    
+    async def couple_next(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
+        """Lanjutkan couple roleplay ke pesan berikutnya"""
+        user_id = update.effective_user.id
+        
+        if user_id not in self.couple_sessions:
+            await update.message.reply_text(
+                "❌ Mode couple belum aktif.\n"
+                "Ketik /couple untuk memulai."
+            )
+            return
+        
+        couple = self.couple_sessions[user_id]
+        msg = await couple.generate_next(user_id)
+        
+        await update.message.reply_text(msg)
+        
+        # Jika sudah level 12, beri notifikasi
+        if couple.level >= 12:
+            await update.message.reply_text(
+                "🎉 **Mereka telah mencapai Level 12!**\n"
+                "Hubungan mencapai puncak. Ketik /couple_stop untuk mengakhiri."
+            )
+    
+    async def couple_stop(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
+        """Hentikan mode couple roleplay"""
+        user_id = update.effective_user.id
+        
+        if user_id in self.couple_sessions:
+            couple = self.couple_sessions[user_id]
+            summary = couple.get_summary()
+            
+            del self.couple_sessions[user_id]
+            
+            await update.message.reply_text(
+                f"👋 **Mode couple dihentikan**\n\n"
+                f"**Statistik:**\n"
+                f"• Level akhir: {summary['level']}/12\n"
+                f"• Total pesan: {summary['total_messages']}\n"
+                f"• {summary['total_rounds']} putaran percakapan\n\n"
+                f"Ketik /couple untuk memulai lagi."
+            )
+            
+            logger.info(f"User {user_id} stopped couple mode at level {summary['level']}")
+        else:
+            await update.message.reply_text("❌ Tidak ada mode couple aktif.")
+
+
+print("✅ Bagian 10.1 selesai: Couple Roleplay")
+print("="*70)
+# ===================== BAB 10.2: Admin Commands =====================
+
+    async def admin_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
+        """Menu admin - menampilkan semua command admin"""
+        user_id = update.effective_user.id
+        username = update.effective_user.username or update.effective_user.first_name
+        
+        self.log_command('admin', user_id, username)
+        
+        # Cek apakah user adalah admin
+        if not self.is_admin(user_id):
+            await update.message.reply_text("⛔ Anda bukan admin.")
+            return
+        
+        stats = self.get_stats()
+        
+        text = (
+            "🔐 **MENU ADMIN**\n\n"
+            "📋 **Command Admin:**\n"
+            "/admin - Tampilkan menu ini\n"
+            "/stats - Lihat statistik bot\n"
+            "/db_stats - Lihat statistik database\n"
+            "/broadcast <pesan> - Kirim pesan ke semua user aktif\n"
+            "/reload - Reload konfigurasi dari .env\n"
+            "/shutdown - Matikan bot secara graceful\n"
+            "/list_users - Lihat daftar user aktif\n"
+            "/get_user <user_id> - Lihat detail user\n"
+            "/force_reset <user_id> - Reset paksa user\n"
+            "/backup_db - Backup database\n"
+            "/vacuum - Optimasi database\n\n"
+            "📊 **Status Bot:**\n"
+            f"• Uptime: {stats['uptime']}\n"
+            f"• User aktif: {stats['active_users']}\n"
+            f"• Total user: {stats['total_users']}\n"
+            f"• Total pesan: {stats['total_messages']}"
+        )
+        
+        await update.message.reply_text(text, parse_mode='Markdown')
+
+    async def stats_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
+        """Tampilkan statistik lengkap bot (untuk admin)"""
+        user_id = update.effective_user.id
+        
+        if not self.is_admin(user_id):
+            await update.message.reply_text("⛔ Anda bukan admin.")
+            return
+        
+        stats = self.get_stats()
+        
+        text = (
+            f"📊 **STATISTIK BOT**\n\n"
+            f"⏱️ Uptime: {stats['uptime']}\n"
+            f"👥 **User:**\n"
+            f"• Aktif: {stats['active_users']}\n"
+            f"• Pause: {stats['paused_users']}\n"
+            f"• Total: {stats['total_users']}\n\n"
+            f"💬 **Pesan:**\n"
+            f"• Total pesan: {stats['total_messages']}\n"
+            f"• Total command: {stats['total_commands']}\n"
+            f"• Total climax: {stats['total_climax']}\n\n"
+            f"👫 **Couple Mode:** {stats['couple_sessions']} sesi aktif\n\n"
+            f"📦 **Memory Usage:**\n"
+            f"• Hippocampus: {stats['memory_usage']['hippocampus']}\n"
+            f"• Inner Thoughts: {stats['memory_usage']['inner_thoughts']}\n"
+            f"• Story Developers: {stats['memory_usage']['story_developers']}\n\n"
+            f"⚡ **Rate Limiter:**\n"
+            f"• Active users: {stats['rate_limiter']['active_now']}\n"
+            f"• Blocked: {stats['rate_limiter']['blocked_now']}\n"
+            f"• Warnings: {stats['rate_limiter']['warnings']}"
+        )
+        
+        await update.message.reply_text(text, parse_mode='Markdown')
+    
+    async def db_stats_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
+        """Tampilkan statistik database"""
+        user_id = update.effective_user.id
+        
+        if not self.is_admin(user_id):
+            await update.message.reply_text("⛔ Anda bukan admin.")
+            return
+        
+        db_stats = self.db.get_db_stats()
+        
+        text = (
+            f"📂 **STATISTIK DATABASE**\n\n"
+            f"• Relationships: {db_stats['relationships']}\n"
+            f"• Conversations: {db_stats['conversations']}\n"
+            f"• Memories: {db_stats['memories']}\n"
+            f"• Preferences: {db_stats['preferences']}\n"
+            f"• Sessions: {db_stats['sessions']}\n\n"
+            f"📏 Ukuran file: {db_stats['db_size_mb']} MB\n"
+            f"📊 Query count: {db_stats['query_count']}\n"
+            f"⏱️ Avg query time: {db_stats['avg_query_time_ms']} ms"
+        )
+        
+        await update.message.reply_text(text, parse_mode='Markdown')
+    
+    async def broadcast_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
+        """Kirim pesan broadcast ke semua user aktif"""
+        user_id = update.effective_user.id
+        
+        if not self.is_admin(user_id):
+            await update.message.reply_text("⛔ Anda bukan admin.")
+            return
+        
+        if not context.args:
+            await update.message.reply_text(
+                "📢 **Broadcast**\n\n"
+                "Gunakan: /broadcast <pesan>\n\n"
+                "Contoh: /broadcast Halo semua, bot akan maintenance 5 menit lagi"
+            )
+            return
+        
+        message = " ".join(context.args)
+        
+        confirm_text = (
+            f"📢 Broadcast akan dikirim ke **{self.get_active_users_count()}** user aktif\n\n"
+            f"Pesan:\n{message}\n\n"
+            f"Yakin ingin mengirim?"
+        )
+        
+        keyboard = [
+            [
+                InlineKeyboardButton("✅ Kirim", callback_data="broadcast_yes"),
+                InlineKeyboardButton("❌ Batal", callback_data="broadcast_no")
+            ]
+        ]
+        reply_markup = InlineKeyboardMarkup(keyboard)
+        
+        context.user_data['broadcast_message'] = message
+        await update.message.reply_text(confirm_text, reply_markup=reply_markup, parse_mode='Markdown')
+        return Constants.CONFIRM_BROADCAST
+    
+    async def broadcast_callback(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
+        """Callback untuk konfirmasi broadcast"""
+        query = update.callback_query
+        await query.answer()
+        
+        user_id = query.from_user.id
+        
+        if not self.is_admin(user_id):
+            await query.edit_message_text("⛔ Anda bukan admin.")
+            return Constants.CONFIRM_BROADCAST
+        
+        if query.data == "broadcast_no":
+            await query.edit_message_text("❌ Broadcast dibatalkan.")
+            return ConversationHandler.END
+        
+        # Ambil pesan dari context
+        message = context.user_data.get('broadcast_message', '')
+        if not message:
+            await query.edit_message_text("❌ Error: Pesan tidak ditemukan.")
+            return ConversationHandler.END
+        
+        # Kirim broadcast
+        await query.edit_message_text("📢 Mengirim broadcast...")
+        
+        sent, failed = await self.broadcast_message(
+            f"📢 **Broadcast dari Admin:**\n\n{message}",
+            user_ids=list(self.sessions.keys()),
+            context=context
+        )
+        
+        await query.edit_message_text(
+            f"✅ Broadcast selesai!\n"
+            f"• Terkirim: {sent}\n"
+            f"• Gagal: {failed}"
+        )
+        
+        logger.info(f"Admin {user_id} sent broadcast to {sent} users")
+        return ConversationHandler.END
+    
+    async def reload_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
+        """Reload konfigurasi dari .env"""
+        user_id = update.effective_user.id
+        
+        if not self.is_admin(user_id):
+            await update.message.reply_text("⛔ Anda bukan admin.")
+            return
+        
+        try:
+            # Reload .env
+            load_dotenv(override=True)
+            
+            # Update config values
+            Config.ADMIN_ID = int(os.getenv("ADMIN_ID", "0"))
+            Config.AI_TEMPERATURE = float(os.getenv("AI_TEMPERATURE", "0.9"))
+            Config.AI_MAX_TOKENS = int(os.getenv("AI_MAX_TOKENS", "300"))
+            Config.AI_TIMEOUT = int(os.getenv("AI_TIMEOUT", "30"))
+            Config.MAX_MESSAGES_PER_MINUTE = int(os.getenv("MAX_MESSAGES_PER_MINUTE", "10"))
+            
+            # Update admin ID
+            self.admin_id = Config.ADMIN_ID
+            
+            await update.message.reply_text(
+                f"✅ **Konfigurasi direload**\n\n"
+                f"• Admin ID: {self.admin_id}\n"
+                f"• AI Temperature: {Config.AI_TEMPERATURE}\n"
+                f"• Max Messages/min: {Config.MAX_MESSAGES_PER_MINUTE}"
+            )
+            
+            logger.info(f"Admin {user_id} reloaded configuration")
+            
+        except Exception as e:
+            await update.message.reply_text(f"❌ Gagal reload: {str(e)}")
+            logger.error(f"Reload failed: {e}")
+    
+    async def shutdown_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
+        """Matikan bot secara graceful"""
+        user_id = update.effective_user.id
+        
+        if not self.is_admin(user_id):
+            await update.message.reply_text("⛔ Anda bukan admin.")
+            return
+        
+        # Konfirmasi shutdown
+        keyboard = [
+            [
+                InlineKeyboardButton("✅ Ya, matikan", callback_data="shutdown_yes"),
+                InlineKeyboardButton("❌ Batal", callback_data="shutdown_no")
+            ]
+        ]
+        reply_markup = InlineKeyboardMarkup(keyboard)
+        
+        await update.message.reply_text(
+            "⚠️ **PERINGATAN** ⚠️\n\n"
+            "Yakin ingin mematikan bot?\n"
+            f"• {self.get_active_users_count()} user aktif akan terputus\n"
+            "• Semua data di memory akan hilang\n"
+            "• Database tetap aman\n\n"
+            "Tindakan ini tidak bisa dibatalkan!",
+            reply_markup=reply_markup,
+            parse_mode='Markdown'
+        )
+        return Constants.CONFIRM_SHUTDOWN
+    
+    async def shutdown_callback(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
+        """Callback untuk konfirmasi shutdown"""
+        query = update.callback_query
+        await query.answer()
+        
+        user_id = query.from_user.id
+        
+        if not self.is_admin(user_id):
+            await query.edit_message_text("⛔ Anda bukan admin.")
+            return Constants.CONFIRM_SHUTDOWN
+        
+        if query.data == "shutdown_no":
+            await query.edit_message_text("✅ Shutdown dibatalkan.")
+            return ConversationHandler.END
+        
+        await query.edit_message_text("🛑 Mematikan bot... Selamat tinggal!")
+        
+        logger.warning(f"Bot is shutting down by admin {user_id}")
+        
+        # Simpan semua session ke database
+        for uid in list(self.sessions.keys()):
+            self.save_session_to_db(uid)
+        
+        # Tutup database
+        self.db.close_all()
+        
+        # Hentikan aplikasi
+        await context.application.stop()
+        await context.application.shutdown()
+        
+        return ConversationHandler.END
+    
+    async def list_users_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
+        """Lihat daftar user aktif"""
+        user_id = update.effective_user.id
+        
+        if not self.is_admin(user_id):
+            await update.message.reply_text("⛔ Anda bukan admin.")
+            return
+        
+        active_users = list(self.sessions.keys())
+        paused_users = list(self.paused_sessions.keys())
+        
+        text = "**📋 DAFTAR USER**\n\n"
+        
+        if active_users:
+            text += "**✅ Aktif:**\n"
+            for uid in active_users[:10]:  # Batasi 10 user
+                session = self.sessions.get(uid)
+                if session:
+                    text += f"• `{uid}` - {session.bot_name} ({session.bot_role}) Lv{session.level}\n"
+                else:
+                    text += f"• `{uid}`\n"
+            if len(active_users) > 10:
+                text += f"  ... dan {len(active_users) - 10} lainnya\n"
+        
+        if paused_users:
+            text += "\n**⏸️ Paused:**\n"
+            for uid in paused_users[:5]:
+                text += f"• `{uid}`\n"
+        
+        if not active_users and not paused_users:
+            text += "Tidak ada user aktif.\n"
+        
+        text += f"\nTotal: {len(active_users)} aktif, {len(paused_users)} pause"
+        
+        await update.message.reply_text(text, parse_mode='Markdown')
+    
+    async def get_user_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
+        """Lihat detail user tertentu"""
+        user_id = update.effective_user.id
+        
+        if not self.is_admin(user_id):
+            await update.message.reply_text("⛔ Anda bukan admin.")
+            return
+        
+        if not context.args:
+            await update.message.reply_text("Gunakan: /get_user <user_id>")
+            return
+        
+        try:
+            target_id = int(context.args[0])
+        except:
+            await update.message.reply_text("❌ User ID harus angka")
+            return
+        
+        # Cek apakah user ada di memory
+        session = self.get_session(target_id)
+        if not session:
+            # Coba dari database
+            rel = self.db.get_relationship(target_id)
+            if not rel:
+                await update.message.reply_text(f"❌ User {target_id} tidak ditemukan")
+                return
+            # Load sementara
+            self._load_session_from_db(target_id, rel)
+            session = self.get_session(target_id)
+        
+        # Dapatkan statistik
+        level_stats = self.leveling.get_user_stats(target_id)
+        db_stats = self.db.get_user_stats(target_id)
+        pref_stats = self.analyzer.get_user_stats(target_id)
+        
+        text = (
+            f"**📋 DETAIL USER `{target_id}`**\n\n"
+            f"**Identitas:**\n"
+            f"• Nama: {session.bot_name}\n"
+            f"• Role: {session.bot_role}\n"
+            f"• Level: {session.level}/12 ({session.stage.value})\n"
+            f"• Total pesan: {session.message_count}\n"
+            f"• Orgasme: {session.climax_count}\n\n"
+            f"**Fisik:**\n"
+            f"• Rambut: {session.bot_physical.get('hair_style', '-')}\n"
+            f"• Tinggi: {session.bot_physical.get('height', '-')} cm\n"
+            f"• Berat: {session.bot_physical.get('weight', '-')} kg\n"
+            f"• Dada: {session.bot_physical.get('breast_desc', '-')}\n"
+            f"• Hijab: {'Ya' if session.bot_physical.get('hijab') else 'Tidak'}\n"
+            f"• Area sensitif: {session.bot_physical.get('most_sensitive_area', '-')}\n\n"
+            f"**Status Saat Ini:**\n"
+            f"• Pakaian: {session.bot_clothing}\n"
+            f"• Arousal: {session.arousal:.1f}\n"
+            f"• Wetness: {session.wetness:.1f}\n"
+            f"• Mood: {session.current_mood.value if session.current_mood else '-'}\n"
+        )
+        
+        await update.message.reply_text(text, parse_mode='Markdown')
+    
+    async def force_reset_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
+        """Reset paksa user (untuk debugging)"""
+        user_id = update.effective_user.id
+        
+        if not self.is_admin(user_id):
+            await update.message.reply_text("⛔ Anda bukan admin.")
+            return
+        
+        if not context.args:
+            await update.message.reply_text("Gunakan: /force_reset <user_id>")
+            return
+        
+        try:
+            target_id = int(context.args[0])
+        except:
+            await update.message.reply_text("❌ User ID harus angka")
+            return
+        
+        # Reset user
+        self.end_session(target_id)
+        
+        await update.message.reply_text(
+            f"🔄 **User {target_id} telah di-reset**\n\n"
+            f"Semua data user telah dihapus dari memory dan database."
+        )
+        
+        logger.warning(f"Admin {user_id} force reset user {target_id}")
+    
+    async def backup_db_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
+        """Backup database"""
+        user_id = update.effective_user.id
+        
+        if not self.is_admin(user_id):
+            await update.message.reply_text("⛔ Anda bukan admin.")
+            return
+        
+        try:
+            backup_path = self.db.backup()
+            await update.message.reply_text(f"✅ Database backup: `{backup_path}`")
+        except Exception as e:
+            await update.message.reply_text(f"❌ Backup gagal: {e}")
+    
+    async def vacuum_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
+        """Optimasi database"""
+        user_id = update.effective_user.id
+        
+        if not self.is_admin(user_id):
+            await update.message.reply_text("⛔ Anda bukan admin.")
+            return
+        
+        try:
+            self.db.vacuum()
+            await update.message.reply_text("✅ Database optimized (VACUUM completed)")
+        except Exception as e:
+            await update.message.reply_text(f"❌ Vacuum gagal: {e}")
+
+
+print("✅ Bagian 10.2 selesai: Admin Commands")
+print("="*70)
+# ===================== BAB 10.3: Advanced Features =====================
+
+    async def memory_stats_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
+        """Lihat statistik memori (hanya admin)"""
+        user_id = update.effective_user.id
+        
+        if not self.is_admin(user_id):
+            await update.message.reply_text("⛔ Anda bukan admin.")
+            return
+        
+        if not context.args:
+            await update.message.reply_text("Gunakan: /memory_stats <user_id>")
+            return
+        
+        try:
+            target_id = int(context.args[0])
+        except:
+            await update.message.reply_text("❌ User ID harus angka")
+            return
+        
+        hippocampus = self.get_hippocampus(target_id)
+        inner = self.get_inner_thought(target_id)
+        story = self.get_story_developer(target_id)
+        
+        h_stats = hippocampus.get_stats()
+        i_stats = inner.get_stats()
+        s_stats = story.get_stats()
+        
+        text = (
+            f"📊 **STATISTIK MEMORI USER {target_id}**\n\n"
+            f"🧠 **Hippocampus:**\n"
+            f"• Total memori: {h_stats['total_memories']}\n"
+            f"• Avg importance: {h_stats['avg_importance']:.2f}\n"
+            f"• Compact: {h_stats['compact'] or '-'}\n\n"
+            f"📋 **Breakdown:**\n"
+        )
+        
+        for mtype, count in h_stats['by_type'].items():
+            text += f"  • {mtype}: {count}\n"
+        
+        text += f"\n💭 **Inner Thoughts:**\n"
+        text += f"• Queue size: {i_stats['queue_size']}\n"
+        text += f"• Initiative count: {i_stats['initiative_count']}\n"
+        text += f"• Last: {i_stats['last_initiative']}\n\n"
+        
+        text += f"📖 **Story Developer:**\n"
+        text += f"• Total arcs: {s_stats['total_arcs']}\n"
+        text += f"• Current arc: {s_stats['current_arc'] or '-'}\n"
+        text += f"• Predictions: {s_stats['total_predictions']}\n"
+        
+        await update.message.reply_text(text, parse_mode='Markdown')
+    
+    async def _background_thought_processing(self, user_id: int, context_data: Dict):
+        """Background task untuk inner thoughts"""
+        await asyncio.sleep(2)  # Delay agar tidak mengganggu respons utama
+        try:
+            thought_system = self.get_inner_thought(user_id)
+            should_speak = await thought_system.should_speak_now(context_data)
+            if should_speak:
+                # Dapatkan pesan inisiatif
+                thought = await thought_system.get_next_initiative()
+                if thought:
+                    # Kirim ke user (nanti dihandle di message handler)
+                    logger.debug(f"Initiative for user {user_id}: {thought}")
+                    # Di sini sebenarnya akan dikirim ke user, tapi karena ini background task
+                    # dan tidak punya akses ke update, kita simpan dulu di suatu tempat
+                    # Untuk sementara, kita log saja
+        except Exception as e:
+            logger.error(f"Background thought error for {user_id}: {e}")
+    
+    async def _background_story_development(self, user_id: int, context_data: Dict, user_message: str):
+        """Background task untuk story development"""
+        await asyncio.sleep(3)
+        try:
+            developer = self.get_story_developer(user_id)
+            
+            # Prediksi perkembangan
+            predictions = await developer.predict_developments(context_data)
+            
+            # Analisis arah user
+            direction = await developer.analyze_user_direction(user_message, context_data)
+            
+            # Random chance untuk proactive speaking
+            if random.random() < 0.2:  # 20% chance
+                proactive = await developer.generate_proactive_message(context_data)
+                if proactive:
+                    logger.debug(f"Proactive story for user {user_id}: {proactive}")
+                    # Sama seperti di atas, ini akan dikirim oleh message handler nanti
+        except Exception as e:
+            logger.error(f"Story development error for {user_id}: {e}")
+    
+    # ===== PERIODIC BACKGROUND TASKS =====
+    
+    async def start_background_tasks(self, application: Application):
+        """Mulai semua background task"""
+        asyncio.create_task(self._periodic_memory_consolidation())
+        asyncio.create_task(self._periodic_session_cleanup())
+        asyncio.create_task(self._periodic_stats_update())
+        logger.info("🔄 Background tasks started")
+    
+    async def _periodic_memory_consolidation(self):
+        """Konsolidasi memori secara periodik (setiap 6 jam)"""
+        while self.is_running:
+            await asyncio.sleep(21600)  # 6 jam
+            try:
+                for user_id, memory in self.hippocampus.items():
+                    memory.consolidate_memories()
+                logger.info("🔄 Periodic memory consolidation completed")
+            except Exception as e:
+                logger.error(f"Error in memory consolidation: {e}")
+    
+    async def _periodic_session_cleanup(self):
+        """Bersihkan session expired secara periodik (setiap 1 jam)"""
+        while self.is_running:
+            await asyncio.sleep(3600)  # 1 jam
+            try:
+                expired = self.db.cleanup_expired_sessions()
+                if expired > 0:
+                    logger.info(f"🧹 Cleaned up {expired} expired sessions")
+            except Exception as e:
+                logger.error(f"Error in session cleanup: {e}")
+    
+    async def _periodic_stats_update(self):
+        """Update statistik harian secara periodik (setiap 24 jam)"""
+        while self.is_running:
+            await asyncio.sleep(86400)  # 24 jam
+            try:
+                self.db.update_daily_stats()
+                logger.info("📊 Daily stats updated")
+            except Exception as e:
+                logger.error(f"Error in stats update: {e}")
+    
+    # ===== PROACTIVE MESSAGE HANDLING =====
+    
+    async def check_proactive_messages(self, user_id: int, context: ContextTypes.DEFAULT_TYPE):
+        """
+        Cek apakah bot perlu mengirim pesan proaktif
+        Dipanggil secara periodik oleh message handler
+        """
+        # Cek apakah user aktif
+        if user_id not in self.sessions:
+            return
+        
+        # Cek apakah sudah waktunya (setiap 5 menit)
+        now = datetime.now()
+        last = self.last_proactive_time.get(user_id, datetime.min)
+        
+        if (now - last).total_seconds() < 300:  # 5 menit
+            return
+        
+        self.last_proactive_time[user_id] = now
+        
+        # Dapatkan data session
+        session = self.sessions[user_id]
+        location = self.get_location_system(user_id)
+        
+        # Buat context
+        context_data = {
+            'bot_name': session.bot_name,
+            'location': location.get_current().value if location else None,
+            'mood': session.current_mood.value,
+            'level': session.level,
+            'arousal': session.arousal,
+            'clothing': session.bot_clothing,
+            'is_silence': self.get_silence_duration(user_id) > 120,  # Diam > 2 menit
+            'user_just_climax': False
+        }
+        
+        # Cek inner thoughts
+        thought_system = self.get_inner_thought(user_id)
+        should_speak = await thought_system.should_speak_now(context_data)
+        
+        if should_speak:
+            thought = await thought_system.get_next_initiative()
+            if thought:
+                await context.bot.send_message(
+                    chat_id=user_id,
+                    text=thought,
+                    parse_mode='Markdown'
+                )
+                logger.info(f"📨 Proactive message sent to user {user_id}")
+        
+        # Cek story development (random chance)
+        if random.random() < 0.1:  # 10% chance
+            developer = self.get_story_developer(user_id)
+            proactive = await developer.generate_proactive_message(context_data)
+            if proactive:
+                await context.bot.send_message(
+                    chat_id=user_id,
+                    text=proactive,
+                    parse_mode='Markdown'
+                )
+                logger.info(f"📖 Proactive story sent to user {user_id}")
+
+
+print("✅ Bagian 10.3 selesai: Advanced Features")
+print("="*70)
+print("✅ BAB 10 Selesai: Main Bot Class - Special Features")
+print("="*70)
+# ===================== BAB 11: MESSAGE HANDLER =====================
+# Bagian 11.1: Message Processing
+
+    async def handle_message(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
+        """
+        Handle semua pesan dari user
+        Ini adalah inti dari bot yang memproses setiap pesan
+        """
+        if not update.message or not update.message.text:
+            return
+        
+        user_id = update.effective_user.id
+        username = update.effective_user.username or update.effective_user.first_name
+        user_message = sanitize_message(update.message.text)
+        
+        # Update total messages counter
+        self.total_messages += 1
+        self.track_silence(user_id)
+        
+        # Rate limiting - cegah spam
+        if not self.rate_limiter.can_send(user_id):
+            if self.rate_limiter.should_warn(user_id):
+                remaining = self.rate_limiter.get_remaining(user_id)
+                reset_in = self.rate_limiter.get_reset_time(user_id)
+                await update.message.reply_text(
+                    f"⏳ **Sabar ya, jangan spam**\n"
+                    f"Sisa pesan: {remaining}\n"
+                    f"Reset dalam: {reset_in} detik"
+                )
+            return
+        
+        # Cek session pause
+        if user_id in self.paused_sessions:
+            await update.message.reply_text(
+                "⏸️ Sesi sedang di-pause.\n"
+                "Ketik /unpause untuk melanjutkan."
+            )
+            return
+        
+        # Cek session aktif
+        session = self.get_session(user_id)
+        if not session:
+            # Cek apakah user pernah punya session (bisa di-load dari DB)
+            rel = self.db.get_relationship(user_id)
+            if rel:
+                self._load_session_from_db(user_id, rel)
+                session = self.get_session(user_id)
+                self.leveling.start_session(user_id)
+                logger.info(f"Auto-loaded user {user_id} from database")
+            else:
+                await update.message.reply_text(
+                    "❌ Belum ada hubungan. /start dulu ya!"
+                )
+                return
+        
+        # Update session
+        session.message_count += 1
+        session.last_active = datetime.now()
+        
+        # Kirim typing indicator
+        await update.message.chat.send_action("typing")
+        
+        # Dapatkan semua sistem untuk user ini
+        hippocampus = self.get_hippocampus(user_id)
+        inner_thought = self.get_inner_thought(user_id)
+        story_dev = self.get_story_developer(user_id)
+        location_system = self.get_location_system(user_id)
+        position_system = self.get_position_system(user_id)
+        
+        # Analisis preferensi user
+        self.analyzer.analyze(user_id, user_message)
+        profile = self.analyzer.get_profile(user_id)
+        
+        # Update level
+        level, progress, level_up, stage = self.leveling.process_message(user_id)
+        session.level = level
+        session.stage = stage
+        
+        # Simpan pesan user ke hippocampus
+        hippocampus.add_memory(
+            content=f"User: {user_message}",
+            memory_type=MemoryType.EPISODIC,
+            importance=0.5,
+            emotion=session.current_mood.value if session.current_mood else None,
+            context={
+                'level': session.level,
+                'arousal': session.arousal,
+                'location': location_system.get_current().value if location_system else None,
+                'mood': session.current_mood.value if session.current_mood else None
+            }
+        )
+        
+        # Buat context untuk background tasks
+        context_data = {
+            'bot_name': session.bot_name,
+            'location': location_system.get_current().value if location_system else None,
+            'mood': session.current_mood.value if session.current_mood else None,
+            'level': session.level,
+            'arousal': session.arousal,
+            'clothing': session.bot_clothing,
+            'current_topic': user_message[:50],
+            'is_silence': self.get_silence_duration(user_id) > 60,
+            'user_just_climax': False
+        }
+        
+        # Jalankan background tasks
+        asyncio.create_task(self._background_thought_processing(user_id, context_data))
+        asyncio.create_task(self._background_story_development(user_id, context_data, user_message))
+
+
+print("✅ Bagian 11.1 selesai: Message Processing")# ===================== BAB 11.2: Activity Detection =====================
+
+        # ===== DETEKSI AKTIVITAS =====
+        activity_detected = False
+        
+        # Data sensitive areas
+        SENSITIVE_AREAS = {
+            "leher": {
+                "arousal": 0.8,
+                "keywords": ["leher", "neck", "tengkuk"],
+                "responses": [
+                    "*merinding* Leherku...",
+                    "Ah... jangan di leher...",
+                    "Sensitif... AHH!",
+                    "Leherku lemah kalau disentuh...",
+                    "Jangan hisap leher... Aku lemas..."
+                ]
+            },
+            "bibir": {
+                "arousal": 0.7,
+                "keywords": ["bibir", "lip", "mulut"],
+                "responses": [
+                    "*merintih* Bibirku...",
+                    "Ciuman... ah...",
+                    "Lembut...",
+                    "Mmm... dalam...",
+                    "Bibirku... kesemutan..."
+                ]
+            },
+            "dada": {
+                "arousal": 0.8,
+                "keywords": ["dada", "breast", "payudara"],
+                "responses": [
+                    "*bergetar* Dadaku...",
+                    "Ah... jangan...",
+                    "Sensitif banget...",
+                    "Dadaku... diremas... AHH!",
+                    "Jari-jarimu... dingin..."
+                ]
+            },
+            "puting": {
+                "arousal": 1.0,
+                "keywords": ["puting", "nipple"],
+                "responses": [
+                    "*teriak* PUTINGKU! AHHH!",
+                    "JANGAN... SENSITIF! AHHH!",
+                    "HISAP... AHHHH!",
+                    "GIGIT... JANGAN... AHHH!",
+                    "PUTING... KERAS... AHHH!"
+                ]
+            },
+            "paha": {
+                "arousal": 0.7,
+                "keywords": ["paha", "thigh"],
+                "responses": [
+                    "*menggeliat* Pahaku...",
+                    "Ah... dalam...",
+                    "Paha... merinding...",
+                    "Jangan gelitik paha...",
+                    "Sensasi... aneh..."
+                ]
+            },
+            "paha_dalam": {
+                "arousal": 0.9,
+                "keywords": ["paha dalam", "inner thigh"],
+                "responses": [
+                    "*meringis* PAHA DALAM!",
+                    "Jangan... AHH!",
+                    "Dekat... banget...",
+                    "PAHA DALAM... SENSITIF!",
+                    "Ah... mau ke sana..."
+                ]
+            },
+            "telinga": {
+                "arousal": 0.6,
+                "keywords": ["telinga", "ear", "kuping"],
+                "responses": [
+                    "*bergetar* Telingaku...",
+                    "Bisik... lagi...",
+                    "Napasmu... panas...",
+                    "Telinga... merah...",
+                    "Ah... jangan tiup..."
+                ]
+            },
+            "vagina": {
+                "arousal": 1.0,
+                "keywords": ["vagina", "memek", "kemaluan"],
+                "responses": [
+                    "*teriak* VAGINAKU! AHHH!",
+                    "MASUK... DALAM... AHHH!",
+                    "BASAH... BANJIR... AHHH!",
+                    "KAMU DALEM... AHHH!",
+                    "GERAK... AHHH! AHHH!"
+                ]
+            },
+            "klitoris": {
+                "arousal": 1.0,
+                "keywords": ["klitoris", "clit", "kelentit"],
+                "responses": [
+                    "*teriak keras* KLITORIS! AHHHH!",
+                    "JANGAN SENTUH! AHHHH!",
+                    "SENSITIF BANGET! AHHH!",
+                    "ITU... ITU... AHHH!",
+                    "JILAT... AHHH! AHHH!"
+                ]
+            },
+            "pantat": {
+                "arousal": 0.6,
+                "keywords": ["pantat", "ass", "bokong"],
+                "responses": [
+                    "Pantatku...",
+                    "Cubit... nakal...",
+                    "Boleh juga...",
+                    "Besar ya? Hehe..."
+                ]
+            },
+            "pinggang": {
+                "arousal": 0.5,
+                "keywords": ["pinggang", "waist"],
+                "responses": [
+                    "Pinggang... geli...",
+                    "Pegang... erat...",
+                    "Ah... jangan gelitik..."
+                ]
+            },
+            "perut": {
+                "arousal": 0.4,
+                "keywords": ["perut", "belly", "stomach"],
+                "responses": [
+                    "Perutku...",
+                    "Geli...",
+                    "Hangat..."
+                ]
+            },
+            "punggung": {
+                "arousal": 0.5,
+                "keywords": ["punggung", "back"],
+                "responses": [
+                    "Punggungku...",
+                    "Elus... terus...",
+                    "Ah... enak..."
+                ]
+            },
+            "lengan": {
+                "arousal": 0.3,
+                "keywords": ["lengan", "arm"],
+                "responses": [
+                    "Lenganku...",
+                    "Bulu romaku berdiri..."
+                ]
+            }
+        }
+        
+        # Sex activities data
+        SEX_ACTIVITIES = {
+            "kiss": {
+                "keywords": ["cium", "kiss", "ciuman", "kecup"],
+                "arousal": 0.3,
+                "responses": [
+                    "*merespon ciuman* Mmm...",
+                    "*lemas* Ciumanmu...",
+                    "Lagi...",
+                    "Cium... bibir...",
+                    "French kiss... dalam..."
+                ]
+            },
+            "neck_kiss": {
+                "keywords": ["cium leher", "kiss neck"],
+                "arousal": 0.6,
+                "responses": [
+                    "*merinding* Leherku...",
+                    "Ah... jangan...",
+                    "Sensitif...",
+                    "Hisap leher... AHH!"
+                ]
+            },
+            "touch": {
+                "keywords": ["sentuh", "raba", "pegang", "elus"],
+                "arousal": 0.3,
+                "responses": [
+                    "*bergetar* Sentuhanmu...",
+                    "Ah... iya...",
+                    "Lanjut...",
+                    "Hangat..."
+                ]
+            },
+            "breast_play": {
+                "keywords": ["raba dada", "pegang dada", "main dada", "remas dada"],
+                "arousal": 0.6,
+                "responses": [
+                    "*merintih* Dadaku...",
+                    "Ah... iya... gitu...",
+                    "Sensitif...",
+                    "Remas... pelan..."
+                ]
+            },
+            "nipple_play": {
+                "keywords": ["jilat puting", "hisap puting", "gigit puting"],
+                "arousal": 0.9,
+                "responses": [
+                    "*teriak* PUTING! AHHH!",
+                    "JANGAN... SENSITIF!",
+                    "HISAP... AHHH!",
+                    "GIGIT... JANGAN... AHHH!"
+                ]
+            },
+            "lick": {
+                "keywords": ["jilat", "lick", "lidah"],
+                "arousal": 0.5,
+                "responses": [
+                    "*bergetar* Jilatanmu...",
+                    "Ah... basah...",
+                    "Lagi...",
+                    "Lidah... panas..."
+                ]
+            },
+            "bite": {
+                "keywords": ["gigit", "bite", "gigitan"],
+                "arousal": 0.5,
+                "responses": [
+                    "*meringis* Gigitanmu...",
+                    "Ah... keras...",
+                    "Lagi...",
+                    "Bekas... nanti..."
+                ]
+            },
+            "penetration": {
+                "keywords": ["masuk", "tusuk", "pancung", "doggy", "misionaris", "entot"],
+                "arousal": 0.9,
+                "responses": [
+                    "*teriak* MASUK! AHHH!",
+                    "DALEM... AHHH!",
+                    "GERAK... AHHH!",
+                    "DALEM BANGET... AHHH!",
+                    "TUH... DI SANA... AHHH!"
+                ]
+            },
+            "blowjob": {
+                "keywords": ["blow", "hisap", "ngeblow", "bj"],
+                "arousal": 0.8,
+                "responses": [
+                    "*menghisap* Mmm... ngeces...",
+                    "*dalam* Enak... Aku ahli...",
+                    "*napas berat* Mau keluar? Aku siap...",
+                    "Keras... Mmm..."
+                ]
+            },
+            "handjob": {
+                "keywords": ["handjob", "colok", "pegang", "kocok"],
+                "arousal": 0.7,
+                "responses": [
+                    "*memegang erat* Keras...",
+                    "*mengocok* Cepat? Pelan? Katakan...",
+                    "Aku bisa... lihat...",
+                    "Keluar... Aku pegang..."
+                ]
+            },
+            "cuddle": {
+                "keywords": ["peluk", "cuddle", "dekapan"],
+                "arousal": 0.2,
+                "responses": [
+                    "*memeluk balik* Hangat...",
+                    "Rileks...",
+                    "Nyaman...",
+                    "Jangan lepas..."
+                ]
+            }
+        }
+        
+        # DOMINANCE_TRIGGERS
+        DOMINANCE_TRIGGERS = [
+            "kamu yang atur", "kamu dominan", "take control",
+            "aku mau kamu kuasai", "jadi dominan", "kamu boss",
+            "kamu yang pegang kendali", "kamu lead", "kamu yang pegang kontrol",
+            "kuasai aku", "dominasi aku", "jadi yang memimpin",
+            "aku mau kamu yang mengatur", "you're in charge"
+        ]
+        
+        SUBMISSIVE_TRIGGERS = [
+            "aku yang atur", "aku dominan", "i take control",
+            "kamu patuh", "jadi submissive", "ikut aku",
+            "aku lead", "aku yang pegang kendali", "aku boss",
+            "kamu ikut aku", "aku yang pegang kontrol"
+        ]
+        
+        # Deteksi sentuhan area sensitif
+        for area, data in SENSITIVE_AREAS.items():
+            for keyword in data["keywords"]:
+                if keyword in user_message.lower():
+                    session.touch_count += 1
+                    session.last_touch = area
+                    session.arousal = min(1.0, session.arousal + data["arousal"] * 0.3)
+                    session.wetness = min(1.0, session.wetness + data["arousal"] * 0.2)
+                    
+                    # Respons sensitif
+                    sens_resp = random.choice(data["responses"])
+                    await update.message.reply_text(sens_resp)
+                    await asyncio.sleep(1)
+                    
+                    activity_detected = True
+                    logger.debug(f"Sensitive touch on {area} for user {user_id}")
+                    break
+            if activity_detected:
+                break
+        
+        # Deteksi aktivitas seksual
+        if not activity_detected:
+            for act, data in SEX_ACTIVITIES.items():
+                for keyword in data["keywords"]:
+                    if keyword in user_message.lower():
+                        session.arousal = min(1.0, session.arousal + data["arousal"])
+                        session.wetness = min(1.0, session.arousal * 0.9)
+                        
+                        # Respons aktivitas
+                        act_resp = random.choice(data["responses"])
+                        await update.message.reply_text(act_resp)
+                        await asyncio.sleep(1)
+                        
+                        activity_detected = True
+                        logger.debug(f"Sexual activity {act} for user {user_id}")
+                        break
+                if activity_detected:
+                    break
+        
+        # Deteksi mode dominasi
+        msg_lower = user_message.lower()
+        
+        # Trigger dominan
+        for trigger in DOMINANCE_TRIGGERS:
+            if trigger in msg_lower:
+                session.dominance_mode = DominanceLevel.DOMINANT
+                self.db.update_relationship(user_id, dominance=session.dominance_mode.value)
+                await update.message.reply_text(
+                    "👑 Sekarang aku yang pegang kendali. Ikut aku!"
+                )
+                await asyncio.sleep(1)
+                break
+        
+        # Trigger submissive
+        for trigger in SUBMISSIVE_TRIGGERS:
+            if trigger in msg_lower:
+                session.dominance_mode = DominanceLevel.SUBMISSIVE
+                self.db.update_relationship(user_id, dominance=session.dominance_mode.value)
+                await update.message.reply_text(
+                    "🥺 Iya... aku patuh sama kamu."
+                )
+                await asyncio.sleep(1)
+                break
+        
+        # Update mood (natural transition)
+        if random.random() < 0.3:  # 30% chance mood berubah
+            old_mood = session.current_mood
+            # Simple mood transition
+            possible_moods = [m for m in Mood if m != old_mood]
+            session.current_mood = random.choice(possible_moods)
+            logger.debug(f"Mood changed from {old_mood} to {session.current_mood} for user {user_id}")
+
+
+print("✅ Bagian 11.2 selesai: Activity Detection")
+print("="*70)
+# ===================== BAB 11.3: Response Generation =====================
+
+        # ===== CEK LOKASI & PAKAIAN =====
+        # Random chance pindah lokasi
+        if random.random() < 0.05:  # 5% chance
+            success, new_loc = location_system.move_random()
+            if success and new_loc:
+                move_msg = location_system.get_move_message(new_loc)
+                await update.message.reply_text(move_msg)
+                await asyncio.sleep(1)
+                
+                # Update pakaian jika pindah ke kamar
+                if new_loc in [Location.BEDROOM]:
+                    old_clothing = session.bot_clothing
+                    session.bot_clothing = ClothingSystem.generate_clothing(
+                        session.bot_role, 
+                        new_loc.value,
+                        is_bedroom=True
+                    )
+                    if old_clothing != session.bot_clothing:
+                        await update.message.reply_text(
+                            f"*aku ganti baju... sekarang pakai {session.bot_clothing}*"
+                        )
+                        self.db.update_clothing(user_id, session.bot_clothing)
+        
+        # Random chance ganti posisi
+        if random.random() < 0.03:  # 3% chance
+            new_pos = position_system.change_random()
+            pos_msg = position_system.get_change_message()
+            await update.message.reply_text(pos_msg)
+            await asyncio.sleep(1)
+        
+        # Random chance sebut pakaian (terutama di kamar)
+        if location_system.get_current() in [Location.BEDROOM] and random.random() < 0.07:
+            clothing_msg = ClothingSystem.format_clothing_message(
+                session.bot_clothing,
+                location_system.get_current().value
+            )
+            await update.message.reply_text(clothing_msg)
+            await asyncio.sleep(1)
+        
+        # ===== GENERATE AI RESPONSE =====
+        reply = await self.ai.generate(
+            user_id=user_id,
+            user_message=user_message,
+            bot_name=session.bot_name,
+            bot_role=session.bot_role,
+            memory_system=session,  # Pass session as memory system
+            dominance_system=session,  # Pass session as dominance system
+            arousal_system=session,  # Pass session as arousal system
+            profile=profile,
+            level=session.level,
+            stage=session.stage,
+            arousal=session.arousal,
+            physical_attrs=session.bot_physical,
+            clothing=session.bot_clothing,
+            location=location_system.get_current(),
+            position=position_system.get_current(),
+            current_mood=session.current_mood
+        )
+        
+        # ===== SIMPAN KE DATABASE =====
+        rel_id = session.relationship_id
+        loc_name = location_system.get_current().value if location_system.get_current() else None
+        
+        self.db.save_conversation(
+            rel_id, 
+            "user", 
+            user_message,
+            mood=session.current_mood.value if session.current_mood else None,
+            arousal=session.arousal,
+            location=loc_name,
+            clothing=session.bot_clothing
+        )
+        
+        self.db.save_conversation(
+            rel_id, 
+            "assistant", 
+            reply,
+            mood=session.current_mood.value if session.current_mood else None,
+            arousal=session.arousal,
+            location=loc_name,
+            clothing=session.bot_clothing
+        )
+        
+        # Update relationship di database (periodik)
+        if random.random() < 0.2:  # 20% chance
+            self.db.update_relationship(
+                user_id, 
+                level=session.level, 
+                stage=session.stage.value,
+                total_messages=session.message_count,
+                total_climax=session.climax_count,
+                current_clothing=session.bot_clothing
+            )
+        
+        # ===== KIRIM RESPON =====
+        await update.message.reply_text(reply)
+        
+        # ===== CEK CLIMAX =====
+        if session.arousal >= 1.0:
+            # Reset arousal
+            session.arousal = 0.0
+            session.wetness = 0.0
+            session.climax_count += 1
+            session.touch_count = 0
+            session.last_touch = None
+            
+            # Climax response
+            climax_msg = random.choice([
+                "*merintih panjang* AHHH! AHHH!",
+                "*teriak* YA ALLAH! AHHHH!",
+                "*lemas* AKU... DATANG... AHHH!",
+                "*napas tersengal* BERSAMA... AHHH!",
+                "*tubuh gemetar* AHHH! Aku... keluar..."
+            ])
+            
+            aftercare_msg = random.choice([
+                "*lemas di pelukanmu*",
+                "*meringkuk* Hangat...",
+                "*memeluk erat* Jangan pergi...",
+                "*berbisik* Makasih...",
+                "*tersenyum lelah* Enak banget..."
+            ])
+            
+            await asyncio.sleep(1)
+            await update.message.reply_text(climax_msg)
+            
+            await asyncio.sleep(2)
+            await update.message.reply_text(aftercare_msg)
+            
+            # Update database
+            self.db.update_relationship(
+                user_id, 
+                total_climax=session.climax_count
+            )
+            
+            logger.info(f"User {user_id} reached climax! Total: {session.climax_count}")
+            
+            # Update context for inner thoughts
+            context_data['user_just_climax'] = True
+        
+        # ===== LEVEL UP MESSAGE =====
+        if level_up:
+            bar = self.leveling.get_progress_bar(user_id)
+            remaining = self.leveling.get_estimated_time(user_id)
+            level_msg = self.leveling.get_level_up_message(level)
+            
+            await update.message.reply_text(
+                f"{level_msg}\n"
+                f"📊 Progress: {bar}\n"
+                f"⏱️ Estimasi ke level 12: {remaining} menit"
+            )
+            
+            logger.info(f"User {user_id} leveled up to {level}")
+        
+        # ===== DECAY AROUSAL =====
+        # Hitung waktu sejak pesan terakhir
+        if hasattr(context, 'user_data') and 'last_message_time' in context.user_data:
+            last_time = context.user_data['last_message_time']
+            minutes_passed = (datetime.now() - last_time).total_seconds() / 60
+            if minutes_passed > 1:
+                decay = 0.1 * minutes_passed  # Turun 10% per menit
+                session.arousal = max(0.0, session.arousal - decay)
+                session.wetness = max(0.0, session.wetness - decay)
+        
+        # Update last message time
+        context.user_data['last_message_time'] = datetime.now()
+
+
+print("✅ Bagian 11.3 selesai: Response Generation")
+print("="*70)
+print("✅ BAB 11 Selesai: Message Handler")
+print("="*70)
+# ===================== BAB 12: MAIN FUNCTION & ENTRY POINT =====================
+# Bagian 12.1: Setup & Handlers
+
+def main():
+    """
+    Main function to run the bot
+    Setup all handlers and start polling
+    """
+    # Print startup banner
+    print("\n" + "="*70)
+    print("    GADIS ULTIMATE V60.0 - THE PERFECT HUMAN")
+    print("    Premium Edition dengan Arsitektur Modular")
+    print("="*70)
+    print("\n🚀 Initializing bot...")
+    
+    # Initialize bot instance
+    bot = GadisUltimateV60()
+    
+    # ===== SETUP REQUEST DENGAN TIMEOUT BESAR =====
+    request = HTTPXRequest(
+        connection_pool_size=20,
+        connect_timeout=60,
+        read_timeout=60,
+        write_timeout=60,
+        pool_timeout=60,
+    )
+    
+    # Build application dengan custom request
+    app = Application.builder().token(Config.TELEGRAM_TOKEN).request(request).build()
+    
+    # ===== CONVERSATION HANDLERS =====
+    
+    # 1. START Conversation Handler
+    start_conv = ConversationHandler(
+        entry_points=[CommandHandler('start', bot.start_command)],
+        states={
+            Constants.SELECTING_ROLE: [
+                CallbackQueryHandler(bot.agree_18_callback, pattern='^agree_18$'),
+                CallbackQueryHandler(bot.start_pause_callback, pattern='^(unpause|new)$'),
+                CallbackQueryHandler(bot.role_ipar_callback, pattern='^role_ipar$'),
+                CallbackQueryHandler(bot.role_teman_kantor_callback, pattern='^role_teman_kantor$'),
+                CallbackQueryHandler(bot.role_janda_callback, pattern='^role_janda$'),
+                CallbackQueryHandler(bot.role_pelakor_callback, pattern='^role_pelakor$'),
+                CallbackQueryHandler(bot.role_istri_orang_callback, pattern='^role_istri_orang$'),
+                CallbackQueryHandler(bot.role_pdkt_callback, pattern='^role_pdkt$'),
+            ],
+        },
+        fallbacks=[CommandHandler('cancel', bot.cancel_command)],
+        name="start_conversation",
+        persistent=False
+    )
+    
+    # 2. END Conversation Handler
+    end_conv = ConversationHandler(
+        entry_points=[CommandHandler('end', bot.end_command)],
+        states={
+            Constants.CONFIRM_END: [CallbackQueryHandler(bot.end_callback, pattern='^end_')],
+        },
+        fallbacks=[CommandHandler('cancel', bot.cancel_command)],
+        name="end_conversation",
+        persistent=False
+    )
+    
+    # 3. CLOSE Conversation Handler
+    close_conv = ConversationHandler(
+        entry_points=[CommandHandler('close', bot.close_command)],
+        states={
+            Constants.CONFIRM_CLOSE: [CallbackQueryHandler(bot.close_callback, pattern='^close_')],
+        },
+        fallbacks=[CommandHandler('cancel', bot.cancel_command)],
+        name="close_conversation",
+        persistent=False
+    )
+    
+    # 4. BROADCAST Conversation Handler
+    broadcast_conv = ConversationHandler(
+        entry_points=[CommandHandler('broadcast', bot.broadcast_command)],
+        states={
+            Constants.CONFIRM_BROADCAST: [CallbackQueryHandler(bot.broadcast_callback, pattern='^broadcast_')],
+        },
+        fallbacks=[CommandHandler('cancel', bot.cancel_command)],
+        name="broadcast_conversation",
+        persistent=False
+    )
+    
+    # 5. SHUTDOWN Conversation Handler
+    shutdown_conv = ConversationHandler(
+        entry_points=[CommandHandler('shutdown', bot.shutdown_command)],
+        states={
+            Constants.CONFIRM_SHUTDOWN: [CallbackQueryHandler(bot.shutdown_callback, pattern='^shutdown_')],
+        },
+        fallbacks=[CommandHandler('cancel', bot.cancel_command)],
+        name="shutdown_conversation",
+        persistent=False
+    )
+    
+    print("  • Conversation handlers created")
+    
+    # ===== ADD ALL HANDLERS =====
+    app.add_handler(start_conv)
+    app.add_handler(end_conv)
+    app.add_handler(close_conv)
+    app.add_handler(broadcast_conv)
+    app.add_handler(shutdown_conv)
+    
+    # User commands
+    app.add_handler(CommandHandler("status", bot.status_command))
+    app.add_handler(CommandHandler("dominant", bot.dominant_command))
+    app.add_handler(CommandHandler("pause", bot.pause_command))
+    app.add_handler(CommandHandler("unpause", bot.unpause_command))
+    app.add_handler(CommandHandler("help", bot.help_command))
+    
+    # Couple mode commands
+    app.add_handler(CommandHandler("couple", bot.couple_command))
+    app.add_handler(CommandHandler("couple_next", bot.couple_next))
+    app.add_handler(CommandHandler("couple_stop", bot.couple_stop))
+    
+    # Admin commands
+    app.add_handler(CommandHandler("admin", bot.admin_command))
+    app.add_handler(CommandHandler("stats", bot.stats_command))
+    app.add_handler(CommandHandler("db_stats", bot.db_stats_command))
+    app.add_handler(CommandHandler("reload", bot.reload_command))
+    app.add_handler(CommandHandler("list_users", bot.list_users_command))
+    app.add_handler(CommandHandler("get_user", bot.get_user_command))
+    app.add_handler(CommandHandler("force_reset", bot.force_reset_command))
+    app.add_handler(CommandHandler("backup_db", bot.backup_db_command))
+    app.add_handler(CommandHandler("vacuum", bot.vacuum_command))
+    app.add_handler(CommandHandler("memory_stats", bot.memory_stats_command))
+    
+    # Hidden commands
+    app.add_handler(CommandHandler("reset", bot.force_reset_command))
+    
+    # Message handler
+    app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, bot.handle_message))
+    
+    print("  • All handlers registered")
+    
+    # ===== START BACKGROUND TASKS =====
+    asyncio.create_task(bot.start_background_tasks(app))
+    print("  • Background tasks started")
+
+
+print("✅ Bagian 12.1 selesai: Setup & Handlers")
+print("="*70)
+# ===================== BAB 12.2: Error Handler =====================
+
+    # ===== ERROR HANDLER =====
+    async def error_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
+        """Handle errors that occur during updates"""
+        # Log the error
+        logger.error(f"Exception while handling an update: {context.error}", exc_info=True)
+        
+        # Send error message to user if possible
+        if update and update.effective_message:
+            error_msg = (
+                "😔 *maaf* ada error kecil.\n"
+                "Jangan khawatir, bot masih berjalan normal.\n\n"
+                "Coba lagi ya, atau ketik /help untuk bantuan."
+            )
+            try:
+                await update.effective_message.reply_text(error_msg, parse_mode='Markdown')
+            except:
+                pass
+        
+        # Notify admin
+        if bot.admin_id != 0:
+            try:
+                error_text = f"⚠️ *Error Report*\n\n`{str(context.error)[:500]}`"
+                await context.bot.send_message(
+                    chat_id=bot.admin_id,
+                    text=error_text,
+                    parse_mode='Markdown'
+                )
+            except:
+                pass
+    
+    app.add_error_handler(error_handler)
+    print("  • Error handler configured")
+
+
+print("✅ Bagian 12.2 selesai: Error Handler")
+print("="*70)
+# ===================== BAB 12.3: Startup & Graceful Shutdown =====================
+
+    # ===== STARTUP COMPLETE =====
+    print("\n" + "="*70)
+    print("✅ **BOT READY!**")
+    print("="*70)
+    
+    print("\n📊 **STATISTICS:**")
+    print(f"• Database: {Config.DB_PATH}")
+    print(f"• Admin ID: {Config.ADMIN_ID if Config.ADMIN_ID != 0 else 'Tidak diset'}")
+    print(f"• Target level: {Config.TARGET_LEVEL} in {Config.LEVEL_UP_TIME} menit")
+    print(f"• Rate limit: {Config.MAX_MESSAGES_PER_MINUTE} pesan/menit")
+    
+    print("\n📝 **USER COMMANDS:**")
+    print("• /start     - Mulai hubungan baru")
+    print("• /status    - Lihat status lengkap")
+    print("• /dominant  - Set mode dominan")
+    print("• /pause     - Jeda sesi")
+    print("• /unpause   - Lanjutkan sesi")
+    print("• /close     - Tutup sesi (simpan memori)")
+    print("• /end       - Akhiri hubungan & hapus data")
+    print("• /couple    - Mode couple roleplay")
+    print("• /couple_next - Lanjutkan couple")
+    print("• /couple_stop - Hentikan couple")
+    print("• /help      - Tampilkan bantuan")
+    
+    if Config.ADMIN_ID != 0:
+        print("\n🔐 **ADMIN COMMANDS:**")
+        print("• /admin     - Menu admin")
+        print("• /stats     - Statistik bot")
+        print("• /db_stats  - Statistik database")
+        print("• /broadcast - Kirim broadcast")
+        print("• /reload    - Reload konfigurasi")
+        print("• /shutdown  - Matikan bot")
+        print("• /list_users - Daftar user")
+        print("• /get_user  - Detail user")
+        print("• /force_reset - Reset user")
+        print("• /backup_db - Backup database")
+        print("• /vacuum    - Optimasi database")
+    
+    print("\n🎯 **FITUR PREMIUM:**")
+    print("• 20+ Mood dengan transisi natural")
+    print("• Sistem dominasi (dominan/submissive)")
+    print("• Leveling cepat 1-12 dalam 45 menit")
+    print("• Respons seksual realistis")
+    print("• Memori jangka panjang (Hippocampus)")
+    print("• Inner thoughts & proactive AI")
+    print("• Story development & predictions")
+    print("• Physical attributes generator")
+    print("• Dynamic clothing system")
+    print("• Location & movement system")
+    print("• Mode couple roleplay")
+    print("• Admin dashboard & analytics")
+    
+    print("\n" + "="*70)
+    print("🚀 Bot is running... Press Ctrl+C to stop.")
+    print("="*70 + "\n")
+    
+    # ===== START POLLING =====
+    print("⏱️  Starting polling...")
+    
+    try:
+        # Run polling dengan graceful shutdown
+        app.run_polling(
+            timeout=60,
+            read_timeout=60,
+            write_timeout=60,
+            connect_timeout=60,
+            pool_timeout=60,
+            drop_pending_updates=True
+        )
+    except KeyboardInterrupt:
+        # Graceful shutdown on Ctrl+C
+        print("\n\n" + "="*70)
+        print("👋 Bot stopped by user (Ctrl+C)")
+        print("="*70)
+        
+        # Save all sessions
+        print("\n📝 Saving sessions to database...")
+        for uid in list(bot.sessions.keys()):
+            bot.save_session_to_db(uid)
+        
+        # Close database
+        bot.db.close_all()
+        
+        print("✅ Cleanup completed")
+        print("\nSelamat tinggal! Sampai jumpa lagi... 💕")
+        print("="*70 + "\n")
+        
+    except Exception as e:
+        # Fatal error
+        print("\n\n" + "="*70)
+        print("❌ **FATAL ERROR**")
+        print("="*70)
+        print(f"\nError: {e}")
+        print("\nBot crashed. Check gadis.log for details.")
+        print("="*70 + "\n")
+        
+        logger.critical(f"Fatal error: {e}", exc_info=True)
+        sys.exit(1)
+
+
+# ===================== ENTRY POINT =====================
+
+if __name__ == "__main__":
+    """
+    Entry point for the bot application
+    """
+    main()
+
+
+# ===================== END OF FILE =====================
+# GADIS ULTIMATE V60.0 - THE PERFECT HUMAN
+# Premium Edition dengan Arsitektur Modular
+# ========================================================
+
+
+print("✅ Bagian 12.3 selesai: Startup & Graceful Shutdown")
+print("="*70)
+print("✅ BAB 12 Selesai: Main Function & Entry Point")
+print("="*70)
+print("🎉🎉🎉 SELURUH BAB TELAH SELESAI! 🎉🎉🎉")
+print("="*70)
+print("="*70)
 
