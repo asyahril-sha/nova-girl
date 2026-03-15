@@ -8450,6 +8450,20 @@ log.setLevel(logging.ERROR)
 flask_app = Flask(__name__)
 bot_instance = None
 
+# Buat satu event loop untuk semua webhook
+global_loop = asyncio.new_event_loop()
+asyncio.set_event_loop(global_loop)
+
+def run_global_loop():
+    """Jalankan global loop di thread terpisah"""
+    asyncio.set_event_loop(global_loop)
+    global_loop.run_forever()
+
+# Jalankan loop di thread terpisah
+loop_thread = threading.Thread(target=run_global_loop, daemon=True)
+loop_thread.start()
+print("✅ Global event loop is running")
+
 # ===== WEBHOOK ENDPOINT (FORCE TASK) =====
 @flask_app.route('/webhook', methods=['POST'])
 def webhook():
