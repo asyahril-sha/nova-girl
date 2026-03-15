@@ -6789,6 +6789,8 @@ print("✅ BAB 8 Selesai: Main Bot Class - Core")
 print("="*70)
 # ===================== BAB 9: MAIN BOT CLASS - COMMANDS =====================
 # Bagian 9.1: Start & Role Selection
+# Bagian 9.2: Status & Dominance Commands
+# Bagian 9.3: Session Control Commands
 
     # ===== START COMMAND =====
     
@@ -6830,7 +6832,7 @@ print("="*70)
             parse_mode='Markdown'
         )
         return Constants.SELECTING_ROLE
-    
+
     async def agree_18_callback(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         """Callback setelah user setuju disclaimer"""
         query = update.callback_query
@@ -6863,7 +6865,7 @@ print("="*70)
             reply_markup=reply_markup
         )
         return Constants.SELECTING_ROLE
-    
+
     async def role_callback(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         """Callback setelah user memilih role"""
         query = update.callback_query
@@ -6899,7 +6901,7 @@ print("="*70)
         logger.info(f"✨ New relationship: User {user_id} as {name} ({role})")
         
         return Constants.ACTIVE_SESSION
-    
+
     async def start_pause_callback(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         """Callback untuk memilih lanjutkan atau mulai baru saat ada session pause"""
         query = update.callback_query
@@ -6942,31 +6944,28 @@ print("="*70)
             return Constants.SELECTING_ROLE
         
         return ConversationHandler.END
-    
+
     # Role-specific callbacks (untuk konsistensi)
     async def role_ipar_callback(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         return await self.role_callback(update, context)
-    
+
     async def role_teman_kantor_callback(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         return await self.role_callback(update, context)
-    
+
     async def role_janda_callback(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         return await self.role_callback(update, context)
-    
+
     async def role_pelakor_callback(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         return await self.role_callback(update, context)
-    
+
     async def role_istri_orang_callback(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         return await self.role_callback(update, context)
-    
+
     async def role_pdkt_callback(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         return await self.role_callback(update, context)
 
-
-print("✅ Bagian 9.1 selesai: Start & Role Selection")
-print("="*70)
-# ===================== BAB 9.2: Status & Dominance Commands =====================
-
+    # ===== STATUS COMMAND =====
+    
     async def status_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         """Lihat status lengkap hubungan saat ini"""
         user_id = update.effective_user.id
@@ -7037,6 +7036,8 @@ print("="*70)
             status += self.analyzer.get_summary(user_id)
         
         await update.message.reply_text(status, parse_mode='Markdown')
+
+    # ===== DOMINANT COMMAND =====
     
     async def dominant_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         """Set mode dominan manual"""
@@ -7098,11 +7099,8 @@ print("="*70)
                 "❌ Level tidak valid. Gunakan: normal, dominan, sangat dominan, agresif, atau patuh"
             )
 
-
-print("✅ Bagian 9.2 selesai: Status & Dominance Commands")
-print("="*70)
-# ===================== BAB 9.3: Session Control Commands =====================
-
+    # ===== PAUSE COMMAND =====
+    
     async def pause_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         """Pause sesi sementara"""
         user_id = update.effective_user.id
@@ -7124,6 +7122,8 @@ print("="*70)
             )
         else:
             await update.message.reply_text("❌ Gagal mem-pause sesi.")
+
+    # ===== UNPAUSE COMMAND =====
     
     async def unpause_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         """Lanjutkan sesi yang di-pause"""
@@ -7145,6 +7145,8 @@ print("="*70)
             await update.message.reply_text(
                 "❌ Tidak ada sesi di-pause atau sesi sudah expired."
             )
+
+    # ===== CLOSE COMMAND =====
     
     async def close_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         """Menutup sesi tapi menyimpan memori di database"""
@@ -7184,7 +7186,7 @@ print("="*70)
             reply_markup=reply_markup
         )
         return Constants.CONFIRM_CLOSE
-    
+
     async def close_callback(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         """Callback untuk konfirmasi close"""
         query = update.callback_query
@@ -7214,6 +7216,8 @@ print("="*70)
         
         logger.info(f"User {user_id} closed session (level {level})")
         return ConversationHandler.END
+
+    # ===== END COMMAND =====
     
     async def end_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         """Mengakhiri hubungan dan menghapus semua data (hard reset)"""
@@ -7257,7 +7261,7 @@ print("="*70)
             reply_markup=reply_markup
         )
         return Constants.CONFIRM_END
-    
+
     async def end_callback(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         """Callback untuk konfirmasi end"""
         query = update.callback_query
@@ -7300,6 +7304,8 @@ print("="*70)
         
         logger.info(f"User {user_id} ended relationship - Level {stats['level']}")
         return ConversationHandler.END
+
+    # ===== CANCEL COMMAND =====
     
     async def cancel_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         """Membatalkan percakapan (untuk ConversationHandler)"""
@@ -7312,6 +7318,8 @@ print("="*70)
             "❌ Dibataikan. Ketik /start untuk memulai."
         )
         return ConversationHandler.END
+
+    # ===== HELP COMMAND =====
     
     async def help_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         """Menampilkan bantuan lengkap"""
@@ -7324,8 +7332,6 @@ print("="*70)
         await update.message.reply_text(help_text, parse_mode='Markdown')
 
 
-print("✅ Bagian 9.3 selesai: Session Control Commands")
-print("="*70)
 print("✅ BAB 9 Selesai: Main Bot Class - Commands")
 print("="*70)
 # ===================== BAB 10: MAIN BOT CLASS - SPECIAL FEATURES =====================
