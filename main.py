@@ -8425,42 +8425,74 @@ print("="*70)
 # ===================== BAB 12: MAIN FUNCTION & ENTRY POINT =====================
 # Bagian 12.1: Setup & Handlers
 # Bagian 12.2: Error Handler
-# Bagian 12.3: Webhook Setup
+# Bagian 12.3: Webhook Setup (Production Ready)
 # Bagian 12.4: Startup & Graceful Shutdown
 
 # ===== WEBHOOK SETUP UNTUK RAILWAY =====
-from flask import Flask, request
+from flask import Flask, request, jsonify
 import threading
 import requests
+import logging
+
+# Matikan log Flask yang berlebihan
+log = logging.getLogger('werkzeug')
+log.setLevel(logging.ERROR)
 
 # Global variables untuk Flask
 flask_app = Flask(__name__)
 bot_instance = None
+
+# ===== ENDPOINTS FLASK =====
 
 @flask_app.route('/webhook', methods=['POST'])
 def webhook():
     """Handle incoming webhook updates from Telegram"""
     global bot_instance
     if bot_instance and hasattr(bot_instance, 'application'):
-        update = Update.de_json(request.get_json(force=True), bot_instance.application.bot)
-        bot_instance.application.process_update(update)
-        return 'OK', 200
+        try:
+            update = Update.de_json(request.get_json(force=True), bot_instance.application.bot)
+            bot_instance.application.process_update(update)
+            return 'OK', 200
+        except Exception as e:
+            print(f"❌ Error processing webhook: {e}")
+            return 'Error', 500
     return 'Bot not ready', 503
 
 @flask_app.route('/')
+@flask_app.route('/health')
 def home():
     """Healthcheck endpoint untuk Railway"""
-    return 'NOVA GIRL Bot is running!', 200
+    return jsonify({
+        'status': 'healthy',
+        'message': 'NOVA GIRL Bot is running!',
+        'timestamp': datetime.now().isoformat()
+    }), 200
 
-@flask_app.route('/health')
-def health():
-    """Alternate healthcheck endpoint"""
-    return 'Healthy', 200
+@flask_app.route('/null')
+def null_endpoint():
+    """Handle /null requests from Railway"""
+    return jsonify({
+        'status': 'healthy',
+        'message': 'NOVA GIRL Bot is running!'
+    }), 200
+
+@flask_app.route('/favicon.ico')
+def favicon():
+    """Handle favicon requests"""
+    return '', 204
+
+# ===== FLASK SERVER =====
 
 def run_flask():
-    """Run Flask app for webhook"""
+    """Run Flask app for webhook dengan production-friendly mode"""
     port = int(os.getenv('PORT', 8080))
-    flask_app.run(host='0.0.0.0', port=port)
+    # Production mode: debug=False, threaded=True
+    flask_app.run(
+        host='0.0.0.0', 
+        port=port, 
+        debug=False,      # ← Matikan debug mode
+        threaded=True     # ← Handle multiple requests
+    )
 
 def start_webhook(bot):
     """Start bot with webhook"""
@@ -8472,10 +8504,11 @@ def start_webhook(bot):
     if not railway_url:
         railway_url = os.getenv('RAILWAY_STATIC_URL', '')
     
-    # Jalankan Flask di thread terpisah (langsung)
+    # Jalankan Flask di thread terpisah
     flask_thread = threading.Thread(target=run_flask)
     flask_thread.daemon = True
     flask_thread.start()
+    print(f"✅ Flask server started on port {os.getenv('PORT', '8080')}")
     
     # Set webhook jika di Railway
     if railway_url:
@@ -8488,13 +8521,18 @@ def start_webhook(bot):
             )
             if response.status_code == 200 and response.json().get('ok'):
                 print(f"✅ Webhook set to: {webhook_url}")
+                print(f"✅ Healthcheck endpoints: /, /health, /null")
             else:
                 print(f"❌ Failed to set webhook: {response.text}")
         except Exception as e:
             print(f"❌ Error setting webhook: {e}")
+    else:
+        print("⚠️ No Railway URL found, webhook not set")
+        print("⚠️ Bot akan menggunakan polling mode")
     
-    print(f"✅ Healthcheck endpoint ready at port {os.getenv('PORT', '8080')}")
     return True
+
+# ===== MAIN ASYNC FUNCTION =====
 
 async def main():
     """
@@ -8544,7 +8582,7 @@ async def main():
         fallbacks=[CommandHandler('cancel', bot.cancel_command)],
         name="start_conversation",
         persistent=False,
-        per_message=True  # ← HILANGKAN WARNING
+        per_message=True
     )
     
     # 2. END Conversation Handler
@@ -8556,7 +8594,7 @@ async def main():
         fallbacks=[CommandHandler('cancel', bot.cancel_command)],
         name="end_conversation",
         persistent=False,
-        per_message=True  # ← HILANGKAN WARNING
+        per_message=True
     )
     
     # 3. CLOSE Conversation Handler
@@ -8568,10 +8606,8 @@ async def main():
         fallbacks=[CommandHandler('cancel', bot.cancel_command)],
         name="close_conversation",
         persistent=False,
-        per_message=True  # ← HILANGKAN WARNING
+        per_message=True
     )
-    
-    # BROADCAST, SHUTDOWN, dan COUPLE TELAH DIHAPUS
     
     print("  • Conversation handlers created (per_message=True)")
     
@@ -8579,7 +8615,6 @@ async def main():
     app.add_handler(start_conv)
     app.add_handler(end_conv)
     app.add_handler(close_conv)
-    # broadcast_conv, shutdown_conv, dan couple commands TELAH DIHAPUS
     
     # User commands
     app.add_handler(CommandHandler("status", bot.status_command))
@@ -8588,9 +8623,7 @@ async def main():
     app.add_handler(CommandHandler("unpause", bot.unpause_command))
     app.add_handler(CommandHandler("help", bot.help_command))
     
-    # COUPLE COMMANDS TELAH DIHAPUS
-    
-    # Admin commands (tanpa broadcast dan shutdown)
+    # Admin commands
     app.add_handler(CommandHandler("admin", bot.admin_command))
     app.add_handler(CommandHandler("stats", bot.stats_command))
     app.add_handler(CommandHandler("db_stats", bot.db_stats_command))
@@ -8613,10 +8646,8 @@ async def main():
     # ===== ERROR HANDLER =====
     async def error_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         """Handle errors that occur during updates"""
-        # Log the error
         logger.error(f"Exception while handling an update: {context.error}", exc_info=True)
         
-        # Send error message to user if possible
         if update and update.effective_message:
             error_msg = (
                 "😔 *maaf* ada error kecil.\n"
@@ -8628,7 +8659,6 @@ async def main():
             except:
                 pass
         
-        # Notify admin
         if bot.admin_id != 0:
             try:
                 error_text = f"⚠️ *Error Report*\n\n`{str(context.error)[:500]}`"
@@ -8643,7 +8673,7 @@ async def main():
     app.add_error_handler(error_handler)
     print("  • Error handler configured")
     
-    # ===== START BACKGROUND TASKS (ASYNC) =====
+    # ===== START BACKGROUND TASKS =====
     asyncio.create_task(bot.start_background_tasks(app))
     print("  • Background tasks started")
     
@@ -8651,7 +8681,6 @@ async def main():
     print("\n" + "="*70)
     print("✅ **BOT READY!**")
     print("="*70)
-    
     print("\n📊 **STATISTICS:**")
     print(f"• Database: {Config.DB_PATH}")
     print(f"• Admin ID: {Config.ADMIN_ID if Config.ADMIN_ID != 0 else 'Tidak diset'}")
@@ -8666,7 +8695,6 @@ async def main():
     print("• /unpause   - Lanjutkan sesi")
     print("• /close     - Tutup sesi (simpan memori)")
     print("• /end       - Akhiri hubungan & hapus data")
-    # COUPLE COMMANDS TELAH DIHAPUS
     print("• /help      - Tampilkan bantuan")
     
     if Config.ADMIN_ID != 0:
@@ -8675,27 +8703,12 @@ async def main():
         print("• /stats     - Statistik bot")
         print("• /db_stats  - Statistik database")
         print("• /reload    - Reload konfigurasi")
-        # broadcast dan shutdown telah dihapus
         print("• /list_users - Daftar user")
         print("• /get_user  - Detail user")
         print("• /force_reset - Reset user")
         print("• /backup_db - Backup database")
         print("• /vacuum    - Optimasi database")
         print("• /memory_stats - Statistik memori")
-    
-    print("\n🎯 **FITUR PREMIUM:**")
-    print("• 20+ Mood dengan transisi natural")
-    print("• Sistem dominasi (dominan/submissive)")
-    print("• Leveling cepat 1-12 dalam 45 menit")
-    print("• Respons seksual realistis")
-    print("• Memori jangka panjang (Hippocampus)")
-    print("• Inner thoughts & proactive AI")
-    print("• Story development & predictions")
-    print("• Physical attributes generator")
-    print("• Dynamic clothing system")
-    print("• Location & movement system")
-    print("• Admin dashboard & analytics")
-    # COUPLE MODE TELAH DIHAPUS
     
     print("\n" + "="*70)
     
@@ -8704,14 +8717,9 @@ async def main():
     
     if webhook_started:
         print("🚀 Bot is running with WEBHOOK...")
-        print(f"🌐 Healthcheck endpoint: /")
-        print(f"🤖 Webhook endpoint: /webhook")
-        print("✅ Healthcheck akan selalu sukses!")
     else:
         print("🚀 Bot is running with POLLING (fallback)...")
-        print("⚠️ Healthcheck mungkin gagal karena tidak ada endpoint")
-        # Start polling jika webhook gagal
-        await app.run_polling()  # ← UBAH MENJADI AWAIT
+        await app.run_polling()
         return
     
     print("="*70 + "\n")
@@ -8719,27 +8727,22 @@ async def main():
     # Keep the main thread alive
     try:
         while True:
-            await asyncio.sleep(1)  # ← UBAH MENJADI AWAIT
+            await asyncio.sleep(1)
     except KeyboardInterrupt:
-        # Graceful shutdown on Ctrl+C
         print("\n\n" + "="*70)
         print("👋 Bot stopped by user (Ctrl+C)")
         print("="*70)
         
-        # Save all sessions
         print("\n📝 Saving sessions to database...")
         for uid in list(bot.sessions.keys()):
             bot.save_session_to_db(uid)
         
-        # Close database
         bot.db.close_all()
-        
         print("✅ Cleanup completed")
         print("\nSelamat tinggal! Sampai jumpa lagi... 💕")
         print("="*70 + "\n")
         
     except Exception as e:
-        # Fatal error
         print("\n\n" + "="*70)
         print("❌ **FATAL ERROR**")
         print("="*70)
@@ -8757,7 +8760,7 @@ if __name__ == "__main__":
     """
     Entry point for the bot application
     """
-    asyncio.run(main())  # ← MENGGUNAKAN asyncio.run()
+    asyncio.run(main())
 
 
 # ===================== END OF FILE =====================
