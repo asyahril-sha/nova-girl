@@ -36,6 +36,11 @@ from telegram.ext import (
 from telegram.request import HTTPXRequest
 from openai import OpenAI
 
+# ===== TAMBAHKAN INI UNTUK WEBHOOK =====
+from flask import Flask, request
+import requests
+import threading
+
 # Load environment variables
 load_dotenv()
 
@@ -8316,7 +8321,7 @@ print("="*70)
         asyncio.create_task(self._background_story_development(user_id, context_data, user_message))
 
 
-print("✅ Bagian 11.1 selesai: Message Processing")# ===================== BAB 11.2: Activity Detection =====================
+# ===================== BAB 11.2: Activity Detection =====================
 
         # ===== DETEKSI AKTIVITAS =====
         activity_detected = False
@@ -8674,8 +8679,6 @@ print("✅ Bagian 11.1 selesai: Message Processing")# ===================== BAB 
             logger.debug(f"Mood changed from {old_mood} to {session.current_mood} for user {user_id}")
 
 
-print("✅ Bagian 11.2 selesai: Activity Detection")
-print("="*70)
 # ===================== BAB 11.3: Response Generation =====================
 
         # ===== CEK LOKASI & PAKAIAN =====
@@ -8846,17 +8849,84 @@ print("="*70)
         context.user_data['last_message_time'] = datetime.now()
 
 
-print("✅ Bagian 11.3 selesai: Response Generation")
-print("="*70)
 print("✅ BAB 11 Selesai: Message Handler")
 print("="*70)
 # ===================== BAB 12: MAIN FUNCTION & ENTRY POINT =====================
 # Bagian 12.1: Setup & Handlers
+# Bagian 12.2: Error Handler
+# Bagian 12.3: Webhook Setup
+# Bagian 12.4: Startup & Graceful Shutdown
+
+# ===== WEBHOOK SETUP =====
+from flask import Flask, request
+import requests
+import threading
+
+# Global variables untuk Flask
+flask_app = Flask(__name__)
+bot_instance = None
+
+@flask_app.route('/webhook', methods=['POST'])
+def webhook():
+    """Handle incoming webhook updates from Telegram"""
+    global bot_instance
+    if bot_instance and bot_instance.application:
+        update = Update.de_json(request.get_json(force=True), bot_instance.application.bot)
+        bot_instance.application.process_update(update)
+        return 'OK', 200
+    return 'Bot not ready', 503
+
+@flask_app.route('/')
+def home():
+    return 'NOVA GIRL Bot is running!', 200
+
+@flask_app.route('/health')
+def health():
+    return 'Healthy', 200
+
+def run_flask():
+    """Run Flask app for webhook"""
+    port = int(os.getenv('PORT', 8080))
+    flask_app.run(host='0.0.0.0', port=port)
+
+def start_webhook(bot):
+    """Start bot with webhook"""
+    global bot_instance
+    bot_instance = bot
+    
+    # Dapatkan URL dari Railway
+    railway_url = os.getenv('RAILWAY_PUBLIC_DOMAIN', '')
+    if not railway_url:
+        railway_url = os.getenv('RAILWAY_STATIC_URL', '')
+    
+    if railway_url:
+        webhook_url = f"https://{railway_url}/webhook"
+        
+        # Set webhook via Telegram API
+        try:
+            token = Config.TELEGRAM_TOKEN
+            response = requests.get(
+                f"https://api.telegram.org/bot{token}/setWebhook",
+                params={"url": webhook_url}
+            )
+            if response.status_code == 200 and response.json().get('ok'):
+                print(f"✅ Webhook set to: {webhook_url}")
+            else:
+                print(f"❌ Failed to set webhook: {response.text}")
+        except Exception as e:
+            print(f"❌ Error setting webhook: {e}")
+    else:
+        print("⚠️ No Railway URL found, webhook not set")
+    
+    # Run Flask in a separate thread
+    flask_thread = threading.Thread(target=run_flask)
+    flask_thread.daemon = True
+    flask_thread.start()
 
 def main():
     """
     Main function to run the bot
-    Setup all handlers and start polling
+    Setup all handlers and start webhook
     """
     # Print startup banner
     print("\n" + "="*70)
@@ -8879,6 +8949,7 @@ def main():
     
     # Build application dengan custom request
     app = Application.builder().token(Config.TELEGRAM_TOKEN).request(request).build()
+    bot.application = app  # Simpan reference ke application
     
     # ===== CONVERSATION HANDLERS =====
     
@@ -8987,15 +9058,6 @@ def main():
     
     print("  • All handlers registered")
     
-    # ===== START BACKGROUND TASKS =====
-    asyncio.create_task(bot.start_background_tasks(app))
-    print("  • Background tasks started")
-
-
-print("✅ Bagian 12.1 selesai: Setup & Handlers")
-print("="*70)
-# ===================== BAB 12.2: Error Handler =====================
-
     # ===== ERROR HANDLER =====
     async def error_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         """Handle errors that occur during updates"""
@@ -9028,12 +9090,11 @@ print("="*70)
     
     app.add_error_handler(error_handler)
     print("  • Error handler configured")
-
-
-print("✅ Bagian 12.2 selesai: Error Handler")
-print("="*70)
-# ===================== BAB 12.3: Startup & Graceful Shutdown =====================
-
+    
+    # ===== START BACKGROUND TASKS =====
+    asyncio.create_task(bot.start_background_tasks(app))
+    print("  • Background tasks started")
+    
     # ===== STARTUP COMPLETE =====
     print("\n" + "="*70)
     print("✅ **BOT READY!**")
@@ -9087,22 +9148,16 @@ print("="*70)
     print("• Admin dashboard & analytics")
     
     print("\n" + "="*70)
-    print("🚀 Bot is running... Press Ctrl+C to stop.")
+    print("🚀 Bot is running with WEBHOOK...")
     print("="*70 + "\n")
     
-    # ===== START POLLING =====
-    print("⏱️  Starting polling...")
+    # ===== START WEBHOOK =====
+    start_webhook(bot)
     
+    # Keep the main thread alive
     try:
-        # Run polling dengan graceful shutdown
-        app.run_polling(
-            timeout=60,
-            read_timeout=60,
-            write_timeout=60,
-            connect_timeout=60,
-            pool_timeout=60,
-            drop_pending_updates=True
-        )
+        while True:
+            time.sleep(1)
     except KeyboardInterrupt:
         # Graceful shutdown on Ctrl+C
         print("\n\n" + "="*70)
@@ -9148,12 +9203,7 @@ if __name__ == "__main__":
 # Premium Edition dengan Arsitektur Modular
 # ========================================================
 
-
-print("✅ Bagian 12.3 selesai: Startup & Graceful Shutdown")
-print("="*70)
 print("✅ BAB 12 Selesai: Main Function & Entry Point")
 print("="*70)
 print("🎉🎉🎉 SELURUH BAB TELAH SELESAI! 🎉🎉🎉")
 print("="*70)
-print("="*70)
-
