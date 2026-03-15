@@ -8874,15 +8874,7 @@ def start_webhook(bot):
     
     print(f"✅ Healthcheck endpoint ready at port {os.getenv('PORT', '8080')}")
     return True
-        
-        # Run Flask in a separate thread
-        flask_thread = threading.Thread(target=run_flask)
-        flask_thread.daemon = True
-        flask_thread.start()
-        return True
-    else:
-        print("⚠️ No Railway URL found, using polling mode")
-        return False
+    
 
 def main():
     """
