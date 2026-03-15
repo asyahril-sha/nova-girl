@@ -8425,7 +8425,7 @@ print("="*70)
 # ===================== BAB 12: MAIN FUNCTION & ENTRY POINT =====================
 # Bagian 12.1: Setup & Handlers
 # Bagian 12.2: Error Handler
-# Bagian 12.3: Webhook Setup
+# Bagian 12.3: Webhook Setup (FIXED)
 # Bagian 12.4: Startup & Graceful Shutdown
 
 # ===== WEBHOOK SETUP UNTUK RAILWAY =====
@@ -8442,22 +8442,47 @@ log.setLevel(logging.ERROR)
 flask_app = Flask(__name__)
 bot_instance = None
 
-# ===== ENDPOINTS FLASK =====
+# ===== TEST ENDPOINT (UNTUK CEK FLASK) =====
+@flask_app.route('/test')
+def test():
+    """Test endpoint untuk cek Flask"""
+    return jsonify({
+        'status': 'ok',
+        'message': 'Flask is running!',
+        'endpoints': ['/', '/health', '/null', '/webhook', '/test']
+    }), 200
 
+# ===== WEBHOOK ENDPOINT (YANG UTAMA) =====
 @flask_app.route('/webhook', methods=['POST'])
 def webhook():
     """Handle incoming webhook updates from Telegram"""
+    # Log penting untuk debugging
+    print("🔥🔥🔥 WEBHOOK DIPANGGIL!")
+    
     global bot_instance
     if bot_instance and hasattr(bot_instance, 'application'):
         try:
-            update = Update.de_json(request.get_json(force=True), bot_instance.application.bot)
+            # Log request
+            print(f"📥 Webhook request received")
+            
+            # Parse update dari Telegram
+            update_data = request.get_json(force=True)
+            print(f"📦 Update data: {str(update_data)[:200]}...")
+            
+            # Proses update
+            update = Update.de_json(update_data, bot_instance.application.bot)
             bot_instance.application.process_update(update)
+            
+            print(f"✅ Update processed successfully")
             return 'OK', 200
         except Exception as e:
             print(f"❌ Error processing webhook: {e}")
             return 'Error', 500
-    return 'Bot not ready', 503
+    else:
+        print(f"⚠️ Bot not ready: bot_instance={bot_instance is not None}")
+        return 'Bot not ready', 503
 
+# ===== HEALTHCHECK ENDPOINTS =====
 @flask_app.route('/')
 @flask_app.route('/health')
 def home():
@@ -8465,7 +8490,8 @@ def home():
     return jsonify({
         'status': 'healthy',
         'message': 'NOVA GIRL Bot is running!',
-        'timestamp': datetime.now().isoformat()
+        'timestamp': datetime.now().isoformat(),
+        'endpoints': ['/', '/health', '/null', '/webhook', '/test']
     }), 200
 
 @flask_app.route('/null')
@@ -8484,31 +8510,33 @@ def favicon():
 def run_flask():
     """Run Flask app for webhook"""
     port = int(os.getenv('PORT', 8080))
+    print(f"🚀 Starting Flask on port {port}")
+    print(f"📋 Registered endpoints:")
+    print(f"   - GET  /")
+    print(f"   - GET  /health")
+    print(f"   - GET  /null")
+    print(f"   - POST /webhook")
+    print(f"   - GET  /test")
     flask_app.run(host='0.0.0.0', port=port, debug=False, threaded=True)
 
-def get_railway_url():
-    """Dapatkan URL Railway dari berbagai sumber"""
-    railway_url = os.getenv('RAILWAY_PUBLIC_DOMAIN', '')
-    if railway_url:
-        return railway_url
-    
-    railway_url = os.getenv('RAILWAY_STATIC_URL', '')
-    if railway_url:
-        return railway_url
-    
-    railway_url = os.getenv('RAILWAY_SERVICE_NAME', '')
-    if railway_url:
-        return f"{railway_url}.railway.app"
-    
-    return None
-
-def setup_webhook():
-    """Set webhook Telegram"""
+def start_webhook(bot):
+    """Start bot with webhook"""
     global bot_instance
+    bot_instance = bot
     
-    railway_url = get_railway_url()
+    # Jalankan Flask di thread terpisah
+    flask_thread = threading.Thread(target=run_flask)
+    flask_thread.daemon = True
+    flask_thread.start()
+    print(f"✅ Flask server started on port {os.getenv('PORT', '8080')}")
     
-    if railway_url and bot_instance:
+    # Dapatkan URL dari Railway
+    railway_url = os.getenv('RAILWAY_PUBLIC_DOMAIN', '')
+    if not railway_url:
+        railway_url = os.getenv('RAILWAY_STATIC_URL', '')
+    
+    # Set webhook jika di Railway
+    if railway_url:
         webhook_url = f"https://{railway_url}/webhook"
         try:
             token = Config.TELEGRAM_TOKEN
@@ -8518,29 +8546,24 @@ def setup_webhook():
             )
             if response.status_code == 200 and response.json().get('ok'):
                 print(f"✅ Webhook set to: {webhook_url}")
+                print(f"✅ Test endpoints:")
+                print(f"   - Health: https://{railway_url}/health")
+                print(f"   - Test:   https://{railway_url}/test")
+                print(f"   - Webhook: https://{railway_url}/webhook")
                 return True
             else:
                 print(f"❌ Failed to set webhook: {response.text}")
         except Exception as e:
             print(f"❌ Error setting webhook: {e}")
     else:
-        print("⚠️ Railway URL not found, using polling mode")
+        print("⚠️ No Railway URL found, webhook not set")
     
     return False
-
-async def start_polling():
-    """Start polling mode as fallback"""
-    global bot_instance
-    if bot_instance and hasattr(bot_instance, 'application'):
-        print("🚀 Starting polling mode...")
-        await bot_instance.application.run_polling()
-
-# ===== MAIN ASYNC FUNCTION =====
 
 async def main():
     """
     Main async function to run the bot
-    Setup all handlers and start webhook/polling
+    Setup all handlers and start webhook
     """
     # Print startup banner
     print("\n" + "="*70)
@@ -8567,8 +8590,7 @@ async def main():
     app = Application.builder().token(Config.TELEGRAM_TOKEN).request(request).build()
     bot.application = app
     
-    # ===== CONVERSATION HANDLERS (tanpa per_message) =====
-    
+    # ===== CONVERSATION HANDLERS =====
     start_conv = ConversationHandler(
         entry_points=[CommandHandler('start', bot.start_command)],
         states={
@@ -8615,12 +8637,14 @@ async def main():
     app.add_handler(end_conv)
     app.add_handler(close_conv)
     
+    # User commands
     app.add_handler(CommandHandler("status", bot.status_command))
     app.add_handler(CommandHandler("dominant", bot.dominant_command))
     app.add_handler(CommandHandler("pause", bot.pause_command))
     app.add_handler(CommandHandler("unpause", bot.unpause_command))
     app.add_handler(CommandHandler("help", bot.help_command))
     
+    # Admin commands
     app.add_handler(CommandHandler("admin", bot.admin_command))
     app.add_handler(CommandHandler("stats", bot.stats_command))
     app.add_handler(CommandHandler("db_stats", bot.db_stats_command))
@@ -8631,14 +8655,18 @@ async def main():
     app.add_handler(CommandHandler("backup_db", bot.backup_db_command))
     app.add_handler(CommandHandler("vacuum", bot.vacuum_command))
     app.add_handler(CommandHandler("memory_stats", bot.memory_stats_command))
+    
+    # Hidden commands
     app.add_handler(CommandHandler("reset", bot.force_reset_command))
     
+    # Message handler
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, bot.handle_message))
     
     print("  • All handlers registered")
     
     # ===== ERROR HANDLER =====
     async def error_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
+        """Handle errors that occur during updates"""
         logger.error(f"Exception while handling an update: {context.error}", exc_info=True)
         
         if update and update.effective_message:
@@ -8670,18 +8698,8 @@ async def main():
     asyncio.create_task(bot.start_background_tasks(app))
     print("  • Background tasks started")
     
-    # ===== START FLASK SERVER =====
-    flask_thread = threading.Thread(target=run_flask)
-    flask_thread.daemon = True
-    flask_thread.start()
-    print(f"✅ Flask server started on port {os.getenv('PORT', '8080')}")
-    
-    # ===== SETUP WEBHOOK =====
-    if setup_webhook():
-        print("🚀 Bot is running with WEBHOOK...")
-    else:
-        print("🚀 Bot is running with POLLING (fallback)...")
-        asyncio.create_task(start_polling())
+    # ===== START WEBHOOK =====
+    start_webhook(bot)
     
     # ===== STARTUP COMPLETE =====
     print("\n" + "="*70)
@@ -8719,6 +8737,9 @@ async def main():
         print("• /memory_stats - Statistik memori")
     
     print("\n" + "="*70 + "\n")
+    print("🚀 Bot is running with WEBHOOK...")
+    print(f"🌐 Test endpoint: https://{os.getenv('RAILWAY_PUBLIC_DOMAIN', 'localhost')}/test")
+    print("="*70 + "\n")
     
     # Keep the main thread alive
     try:
