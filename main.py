@@ -5516,6 +5516,8 @@ print("✅ BAB 6 Selesai: AI Response Generator")
 print("="*70)
 # ===================== BAB 7: DATABASE MANAGER =====================
 # Bagian 7.1: Connection & Transactions
+# Bagian 7.2: CRUD Operations
+# Bagian 7.3: Session & Stats Management
 
 class DatabaseManager:
     """
@@ -5697,11 +5699,6 @@ class DatabaseManager:
             
             logger.info("✅ Database tables initialized")
 
-
-print("✅ Bagian 7.1 selesai: Connection & Transactions")
-print("="*70)
-# ===================== BAB 7.2: CRUD Operations =====================
-
     # ========== RELATIONSHIP METHODS ==========
     
     def create_relationship(self, 
@@ -5774,7 +5771,7 @@ print("="*70)
                 """, (user_id, bot_name, bot_role, json.dumps(metadata) if metadata else None))
             
             return c.lastrowid
-    
+
     def get_relationship(self, user_id: int) -> Optional[Dict]:
         """Dapatkan relationship berdasarkan user_id"""
         with self.cursor() as c:
@@ -5790,7 +5787,7 @@ print("="*70)
                         data['metadata'] = {}
                 return data
             return None
-    
+
     def update_relationship(self, user_id: int, **kwargs) -> bool:
         """Update relationship dengan field dinamis"""
         if not kwargs:
@@ -5814,7 +5811,7 @@ print("="*70)
                 WHERE user_id=?
             """, values)
             return c.rowcount > 0
-    
+
     def update_clothing(self, user_id: int, clothing: str) -> bool:
         """Update pakaian dan timestamp perubahan"""
         with self.cursor() as c:
@@ -5824,7 +5821,7 @@ print("="*70)
                 WHERE user_id = ?
             """, (clothing, user_id))
             return c.rowcount > 0
-    
+
     def delete_relationship(self, user_id: int) -> bool:
         """Hapus relationship dan semua data terkait"""
         with self.cursor() as c:
@@ -5842,7 +5839,7 @@ print("="*70)
             c.execute("DELETE FROM preferences WHERE user_id=?", (user_id,))
             
             return c.rowcount > 0
-    
+
     # ========== CONVERSATION METHODS ==========
     
     def save_conversation(self, 
@@ -5861,7 +5858,7 @@ print("="*70)
                 VALUES (?, ?, ?, ?, ?, ?, ?)
             """, (rel_id, role, content, mood, arousal, location, clothing))
             return c.lastrowid
-    
+
     def get_conversation_history(self, 
                                 rel_id: int, 
                                 limit: int = 50,
@@ -5876,7 +5873,7 @@ print("="*70)
                 LIMIT ? OFFSET ?
             """, (rel_id, limit, offset))
             return [dict(row) for row in c.fetchall()]
-    
+
     def get_recent_conversations(self, rel_id: int, hours: int = 24) -> List[Dict]:
         """Dapatkan percakapan dari beberapa jam terakhir"""
         with self.cursor() as c:
@@ -5888,7 +5885,7 @@ print("="*70)
                 ORDER BY timestamp ASC
             """, (rel_id, hours))
             return [dict(row) for row in c.fetchall()]
-    
+
     # ========== MEMORY METHODS ==========
     
     def save_memory(self, 
@@ -5908,7 +5905,7 @@ print("="*70)
             """, (rel_id, memory_id, memory, memory_type, importance, emotion, 
                   json.dumps(context) if context else None))
             return c.lastrowid
-    
+
     def get_memories(self, 
                     rel_id: int, 
                     memory_type: str = None,
@@ -5949,7 +5946,7 @@ print("="*70)
                 result.append(data)
             
             return result
-    
+
     def update_memory_access(self, memory_id: str) -> bool:
         """Update last_accessed dan access_count untuk memory"""
         with self.cursor() as c:
@@ -5959,7 +5956,7 @@ print("="*70)
                 WHERE memory_id = ?
             """, (memory_id,))
             return c.rowcount > 0
-    
+
     # ========== PREFERENCES METHODS ==========
     
     def update_preferences(self, user_id: int, **scores) -> bool:
@@ -5988,18 +5985,13 @@ print("="*70)
                 """, values)
             
             return True
-    
+
     def get_preferences(self, user_id: int) -> Dict:
         """Dapatkan preferensi user"""
         with self.cursor() as c:
             c.execute("SELECT * FROM preferences WHERE user_id=?", (user_id,))
             row = c.fetchone()
             return dict(row) if row else {}
-
-
-print("✅ Bagian 7.2 selesai: CRUD Operations")
-print("="*70)
-# ===================== BAB 7.3: Session & Stats Management =====================
 
     # ========== SESSION METHODS ==========
     
@@ -6013,7 +6005,7 @@ print("="*70)
                 VALUES (?, ?, ?)
             """, (user_id, rel_id, expires_at.isoformat()))
             return True
-    
+
     def get_session(self, user_id: int) -> Optional[Dict]:
         """Dapatkan session yang di-pause"""
         with self.cursor() as c:
@@ -6023,19 +6015,19 @@ print("="*70)
             """, (user_id,))
             row = c.fetchone()
             return dict(row) if row else None
-    
+
     def delete_session(self, user_id: int) -> bool:
         """Hapus session"""
         with self.cursor() as c:
             c.execute("DELETE FROM sessions WHERE user_id=?", (user_id,))
             return c.rowcount > 0
-    
+
     def cleanup_expired_sessions(self) -> int:
         """Hapus session yang sudah expired"""
         with self.cursor() as c:
             c.execute("DELETE FROM sessions WHERE expires_at <= datetime('now')")
             return c.rowcount
-    
+
     # ========== STATS METHODS ==========
     
     def update_daily_stats(self, date: datetime.date = None) -> None:
@@ -6079,7 +6071,7 @@ print("="*70)
                 (date, new_users, active_users, total_messages, total_climax)
                 VALUES (?, ?, ?, ?, ?)
             """, (date.isoformat(), new_users, active_users, total_messages, total_climax))
-    
+
     def get_stats(self, days: int = 7) -> Dict:
         """Dapatkan statistik untuk beberapa hari terakhir"""
         with self.cursor() as c:
@@ -6106,7 +6098,7 @@ print("="*70)
                 "total_users": total_users,
                 "total_messages": total_messages
             }
-    
+
     def get_user_stats(self, user_id: int) -> Dict:
         """Dapatkan statistik lengkap untuk user"""
         with self.cursor() as c:
@@ -6148,7 +6140,7 @@ print("="*70)
                 "avg_arousal": avg_arousal,
                 "preferences": self.get_preferences(user_id)
             }
-    
+
     # ========== UTILITY METHODS ==========
     
     def get_all_users(self, active_only: bool = False) -> List[int]:
@@ -6164,19 +6156,19 @@ print("="*70)
                 c.execute("SELECT user_id FROM relationships")
             
             return [row[0] for row in c.fetchall()]
-    
+
     def get_total_count(self, table: str) -> int:
         """Dapatkan total record dalam tabel"""
         with self.cursor() as c:
             c.execute(f"SELECT COUNT(*) FROM {table}")
             return c.fetchone()[0]
-    
+
     def vacuum(self) -> None:
         """Optimasi database (VACUUM)"""
         with self.cursor() as c:
             c.execute("VACUUM")
             logger.info("Database VACUUM completed")
-    
+
     def backup(self, backup_path: str = None) -> str:
         """Backup database ke file"""
         if backup_path is None:
@@ -6186,7 +6178,7 @@ print("="*70)
         shutil.copy2(self.db_path, backup_path)
         logger.info(f"Database backed up to {backup_path}")
         return backup_path
-    
+
     def get_db_stats(self) -> Dict:
         """Dapatkan statistik database"""
         with self.cursor() as c:
@@ -6212,7 +6204,7 @@ print("="*70)
                 "query_count": self.query_count,
                 "avg_query_time_ms": round((self.query_time / self.query_count * 1000) if self.query_count > 0 else 0, 2)
             }
-    
+
     def close_all(self):
         """Tutup semua koneksi database"""
         if hasattr(self._local, 'conn'):
@@ -6221,8 +6213,6 @@ print("="*70)
             logger.info("Database connections closed")
 
 
-print("✅ Bagian 7.3 selesai: Session & Stats Management")
-print("="*70)
 print("✅ BAB 7 Selesai: Database Manager")
 print("="*70)
 # ===================== BAB 8: MAIN BOT CLASS - CORE =====================
