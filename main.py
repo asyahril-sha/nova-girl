@@ -8496,9 +8496,9 @@ def start_webhook(bot):
     print(f"✅ Healthcheck endpoint ready at port {os.getenv('PORT', '8080')}")
     return True
 
-def main():
+async def main():
     """
-    Main function to run the bot
+    Main async function to run the bot
     Setup all handlers and start webhook
     """
     # Print startup banner
@@ -8524,7 +8524,7 @@ def main():
     app = Application.builder().token(Config.TELEGRAM_TOKEN).request(request).build()
     bot.application = app  # Simpan reference ke application
     
-    # ===== CONVERSATION HANDLERS =====
+    # ===== CONVERSATION HANDLERS DENGAN per_message=True =====
     
     # 1. START Conversation Handler
     start_conv = ConversationHandler(
@@ -8543,7 +8543,8 @@ def main():
         },
         fallbacks=[CommandHandler('cancel', bot.cancel_command)],
         name="start_conversation",
-        persistent=False
+        persistent=False,
+        per_message=True  # ← HILANGKAN WARNING
     )
     
     # 2. END Conversation Handler
@@ -8554,7 +8555,8 @@ def main():
         },
         fallbacks=[CommandHandler('cancel', bot.cancel_command)],
         name="end_conversation",
-        persistent=False
+        persistent=False,
+        per_message=True  # ← HILANGKAN WARNING
     )
     
     # 3. CLOSE Conversation Handler
@@ -8565,12 +8567,13 @@ def main():
         },
         fallbacks=[CommandHandler('cancel', bot.cancel_command)],
         name="close_conversation",
-        persistent=False
+        persistent=False,
+        per_message=True  # ← HILANGKAN WARNING
     )
     
     # BROADCAST, SHUTDOWN, dan COUPLE TELAH DIHAPUS
     
-    print("  • Conversation handlers created")
+    print("  • Conversation handlers created (per_message=True)")
     
     # ===== ADD ALL HANDLERS =====
     app.add_handler(start_conv)
@@ -8640,8 +8643,8 @@ def main():
     app.add_error_handler(error_handler)
     print("  • Error handler configured")
     
-    # ===== START BACKGROUND TASKS =====
-    app.post_init(bot.start_background_tasks)
+    # ===== START BACKGROUND TASKS (ASYNC) =====
+    asyncio.create_task(bot.start_background_tasks(app))
     print("  • Background tasks started")
     
     # ===== STARTUP COMPLETE =====
@@ -8708,7 +8711,7 @@ def main():
         print("🚀 Bot is running with POLLING (fallback)...")
         print("⚠️ Healthcheck mungkin gagal karena tidak ada endpoint")
         # Start polling jika webhook gagal
-        app.run_polling()
+        await app.run_polling()  # ← UBAH MENJADI AWAIT
         return
     
     print("="*70 + "\n")
@@ -8716,7 +8719,7 @@ def main():
     # Keep the main thread alive
     try:
         while True:
-            time.sleep(1)
+            await asyncio.sleep(1)  # ← UBAH MENJADI AWAIT
     except KeyboardInterrupt:
         # Graceful shutdown on Ctrl+C
         print("\n\n" + "="*70)
@@ -8754,7 +8757,7 @@ if __name__ == "__main__":
     """
     Entry point for the bot application
     """
-    main()
+    asyncio.run(main())  # ← MENGGUNAKAN asyncio.run()
 
 
 # ===================== END OF FILE =====================
