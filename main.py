@@ -5108,23 +5108,23 @@ print("="*70)
 # ===================== BAB 6.2: Prompt Builder =====================
 
     def _build_prompt(self, 
-                       user_id: int,
-                       user_message: str, 
-                       bot_name: str,
-                       bot_role: str,
-                       memory_system,  # UserSession instance
-                       dominance_system,  # DominanceSystem instance
-                       arousal_system,  # ArousalSystem instance
-                       profile: Dict,
-                       level: int,
-                       stage: IntimacyStage,
-                       arousal: float,
-                       physical_attrs: Dict = None,
-                       clothing: str = None,
-                       location: Location = None,
-                       position: Position = None,
-                       current_mood: Mood = None,
-                       inner_thought: str = None) -> str:
+                      user_id: int,
+                      user_message: str, 
+                      bot_name: str,
+                      bot_role: str,
+                      memory_system,  # UserSession instance
+                      dominance_system,  # DominanceSystem instance
+                      arousal_system,  # ArousalSystem instance
+                      profile: Dict,
+                      level: int,
+                      stage: IntimacyStage,
+                      arousal: float,
+                      physical_attrs: Dict = None,
+                      clothing: str = None,
+                      location: Location = None,
+                      position: Position = None,
+                      current_mood: Mood = None,
+                      inner_thought: str = None) -> str:
         """
         Bangun prompt lengkap dengan semua konteks
         """
@@ -5136,7 +5136,10 @@ print("="*70)
             history_text += f"{role}: {msg['content']}\n"
         
         # Dapatkan ekspresi mood
-        mood_exp = memory_system.get_mood_expression() if hasattr(memory_system, 'get_mood_expression') else "*tersenyum*"
+        if hasattr(memory_system, 'get_mood_expression'):
+            mood_exp = memory_system.get_mood_expression()
+        else:
+            mood_exp = "*tersenyum*"
         
         # Dapatkan deskripsi arousal
         if arousal > 0.8:
@@ -5161,7 +5164,10 @@ print("="*70)
             voice = "normal"
         
         # Dapatkan deskripsi wetness
-        wet_desc = arousal_system.get_wetness_text() if hasattr(arousal_system, 'get_wetness_text') else ""
+        if hasattr(arousal_system, 'get_wetness_text'):
+            wet_desc = arousal_system.get_wetness_text()
+        else:
+            wet_desc = ""
         
         # Tambahkan deskripsi fisik jika ada
         physical_text = ""
@@ -5240,7 +5246,7 @@ Kepribadian utama: {profile.get('personality', 'normal')}
         
         # Tambahkan mode dominasi
         dominance_text = ""
-        if dominance_system:
+        if dominance_system and hasattr(dominance_system, 'current_level'):
             dominance_text = f"\n=== MODE DOMINASI ===\nMode saat ini: {dominance_system.current_level.value}"
         
         # Bangun prompt final
