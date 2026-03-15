@@ -8442,37 +8442,36 @@ log.setLevel(logging.ERROR)
 flask_app = Flask(__name__)
 bot_instance = None
 
-# ===== TEST ENDPOINT (UNTUK CEK FLASK) =====
-@flask_app.route('/test')
-def test():
-    """Test endpoint untuk cek Flask"""
-    return jsonify({
-        'status': 'ok',
-        'message': 'Flask is running!',
-        'endpoints': ['/', '/health', '/null', '/webhook', '/test']
-    }), 200
-
-# ===== WEBHOOK ENDPOINT (YANG SUDAH DIPERBAIKI) =====
+# ===== WEBHOOK ENDPOINT (SYNC VERSION) =====
 @flask_app.route('/webhook', methods=['POST'])
-async def webhook():
-    """Handle incoming webhook updates from Telegram"""
+def webhook():
+    """Handle incoming webhook updates from Telegram (sync version)"""
     print("🔥🔥🔥 WEBHOOK DIPANGGIL!")
     
     global bot_instance
     if bot_instance and hasattr(bot_instance, 'application'):
         try:
-            # Log request
             print(f"📥 Webhook request received")
-            
-            # Parse update dari Telegram
             update_data = request.get_json(force=True)
             print(f"📦 Update data: {str(update_data)[:200]}...")
             
-            # Proses update - INI YANG DIPERBAIKI (ditambah await)
+            # Buat update object
             update = Update.de_json(update_data, bot_instance.application.bot)
-            await bot_instance.application.process_update(update)
             
-            print(f"✅ Update processed successfully")
+            # Jalankan coroutine di event loop yang sama
+            # Ambil event loop dari bot instance
+            loop = asyncio.get_event_loop()
+            
+            # Jalankan coroutine
+            if loop.is_running():
+                # Jika loop sudah running, gunakan create_task
+                asyncio.create_task(bot_instance.application.process_update(update))
+                print(f"✅ Update task created")
+            else:
+                # Jika loop belum running, run sampai selesai
+                loop.run_until_complete(bot_instance.application.process_update(update))
+                print(f"✅ Update processed synchronously")
+            
             return 'OK', 200
         except Exception as e:
             print(f"❌ Error processing webhook: {e}")
