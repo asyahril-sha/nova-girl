@@ -8452,11 +8452,10 @@ def test():
         'endpoints': ['/', '/health', '/null', '/webhook', '/test']
     }), 200
 
-# ===== WEBHOOK ENDPOINT (YANG UTAMA) =====
+# ===== WEBHOOK ENDPOINT (YANG SUDAH DIPERBAIKI) =====
 @flask_app.route('/webhook', methods=['POST'])
-def webhook():
+async def webhook():
     """Handle incoming webhook updates from Telegram"""
-    # Log penting untuk debugging
     print("🔥🔥🔥 WEBHOOK DIPANGGIL!")
     
     global bot_instance
@@ -8469,9 +8468,9 @@ def webhook():
             update_data = request.get_json(force=True)
             print(f"📦 Update data: {str(update_data)[:200]}...")
             
-            # Proses update
+            # Proses update - INI YANG DIPERBAIKI (ditambah await)
             update = Update.de_json(update_data, bot_instance.application.bot)
-            bot_instance.application.process_update(update)
+            await bot_instance.application.process_update(update)
             
             print(f"✅ Update processed successfully")
             return 'OK', 200
