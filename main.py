@@ -5537,9 +5537,9 @@ class DatabaseManager:
     def __init__(self):
         self.db_path = Config.DB_PATH
         self._local = threading.local()
-        self._init_db()
         self.query_count = 0
         self.query_time = 0.0
+        self._init_db()
         
         logger.info(f"  • Database Manager initialized: {self.db_path}")
     
