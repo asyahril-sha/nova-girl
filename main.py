@@ -8442,7 +8442,7 @@ log.setLevel(logging.ERROR)
 flask_app = Flask(__name__)
 bot_instance = None
 
-# ===== WEBHOOK ENDPOINT (FINAL VERSION) =====
+# ===== WEBHOOK ENDPOINT (SYNC VERSION WITH TASK) =====
 @flask_app.route('/webhook', methods=['POST'])
 def webhook():
     """Handle incoming webhook updates from Telegram"""
@@ -8455,25 +8455,21 @@ def webhook():
             update_data = request.get_json(force=True)
             print(f"📦 Update data: {str(update_data)[:200]}...")
             
-            # Cek apakah application sudah di-initialize
-            if not bot_instance.application.initialized:
-                print(f"⚠️ Application not initialized!")
-                return 'Application not ready', 503
-            
             # Buat update object
             update = Update.de_json(update_data, bot_instance.application.bot)
             
-            # Dapatkan atau buat event loop
+            # Dapatkan event loop yang sudah ada
             try:
-                loop = asyncio.get_event_loop()
+                loop = asyncio.get_running_loop()
             except RuntimeError:
+                # Tidak ada loop running, buat task baru
                 loop = asyncio.new_event_loop()
                 asyncio.set_event_loop(loop)
+                
+            # Buat task untuk memproses update (tidak di-await)
+            loop.create_task(bot_instance.application.process_update(update))
             
-            # Proses update
-            loop.run_until_complete(bot_instance.application.process_update(update))
-            
-            print(f"✅ Update processed successfully")
+            print(f"✅ Update task created")
             return 'OK', 200
         except Exception as e:
             print(f"❌ Error processing webhook: {e}")
@@ -8592,8 +8588,9 @@ async def main():
     app = Application.builder().token(Config.TELEGRAM_TOKEN).request(request).build()
     bot.application = app
 
-    # 🔴 PENTING: Initialize application (WAJIB di PTB v20+)
+    # 🔴 PENTING: Initialize application di awal
     await app.initialize()
+    print("  • Application initialized")
 
     # ===== CONVERSATION HANDLERS =====
     start_conv = ConversationHandler(
