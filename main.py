@@ -5106,20 +5106,16 @@ class AIResponseGenerator:
         # Batasi history
         if len(self.conversation_history[user_id]) > self.max_history * 2:
             self.conversation_history[user_id] = self.conversation_history[user_id][-self.max_history*2:]
-
-
-print("✅ Bagian 6.1 selesai: Prompt Builder & API Call")
-print("="*70)
-# ===================== BAB 6.2: Prompt Builder =====================
+            # ===================== BAB 6.2: Prompt Builder =====================
 
     def _build_prompt(self, 
                       user_id: int,
                       user_message: str, 
                       bot_name: str,
                       bot_role: str,
-                      memory_system,  # UserSession instance
-                      dominance_system,  # DominanceSystem instance
-                      arousal_system,  # ArousalSystem instance
+                      memory_system,
+                      dominance_system,
+                      arousal_system,
                       profile: Dict,
                       level: int,
                       stage: IntimacyStage,
@@ -5308,7 +5304,7 @@ RESPON:"""
         return prompt
 
 
-print("✅ Bagian 6.2 selesai: Prompt Builder")
+print("✅ Bagian 6.1 dan 6.2 selesai: Prompt Builder & API Call")
 print("="*70)
 # ===================== BAB 6.3: Generate & Fallback Responses =====================
 
