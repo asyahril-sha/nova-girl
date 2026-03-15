@@ -8951,7 +8951,7 @@ def main():
     
      # 4. BROADCAST Conversation Handler
     broadcast_conv = ConversationHandler(
-        entry_points=[CommandHandler('broadcast', bot.broadcast_command)],  # ← PERBAIKAN: broadcast_command, bukan broadcast_start
+        entry_points=[CommandHandler('broadcast', bot.broadcast_command)],
         states={
             Constants.CONFIRM_BROADCAST: [CallbackQueryHandler(bot.broadcast_callback, pattern='^broadcast_')],
         },
