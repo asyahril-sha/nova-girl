@@ -8950,13 +8950,16 @@ def main():
     
     # 4. BROADCAST Conversation Handler
     broadcast_conv = ConversationHandler(
-        entry_points=[CommandHandler('broadcast', bot.broadcast_command)],
-        states={
-            Constants.CONFIRM_BROADCAST: [CallbackQueryHandler(bot.broadcast_callback, pattern='^broadcast_')],
-        },
-        fallbacks=[CommandHandler('cancel', bot.cancel_command)],
-        name="broadcast_conversation",
-        persistent=False
+    entry_points=[CommandHandler('broadcast', bot.broadcast_start)],
+    states={
+        Constants.CONFIRM_BROADCAST: [
+            MessageHandler(filters.TEXT & ~filters.COMMAND, bot.broadcast_command),
+            CallbackQueryHandler(bot.broadcast_callback, pattern='^broadcast_')
+        ],
+    },
+    fallbacks=[CommandHandler('cancel', bot.cancel_command)],
+    name="broadcast_conversation",
+    persistent=False
     )
     
     # 5. SHUTDOWN Conversation Handler
