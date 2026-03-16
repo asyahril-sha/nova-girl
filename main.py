@@ -8526,6 +8526,7 @@ from flask import Flask, request, jsonify
 import threading
 import requests
 import logging
+import asyncio
 
 # Matikan log Flask yang berlebihan
 log = logging.getLogger('werkzeug')
@@ -8535,24 +8536,26 @@ log.setLevel(logging.ERROR)
 flask_app = Flask(__name__)
 bot_instance = None
 
-# Buat satu event loop untuk semua webhook
-global_loop = asyncio.new_event_loop()
-asyncio.set_event_loop(global_loop)
+# ===== GLOBAL EVENT LOOP (FIXED) =====
+class LoopContainer:
+    def __init__(self):
+        self.loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(self.loop)
+
+loop_container = LoopContainer()
 
 def run_global_loop():
     """Jalankan global loop di thread terpisah"""
-    asyncio.set_event_loop(global_loop)
+    asyncio.set_event_loop(loop_container.loop)
     try:
-        global_loop.run_forever()
+        loop_container.loop.run_forever()
     except Exception as e:
         print(f"❌ Global loop error: {e}")
-        # Restart loop jika crash
-        global_loop.close()
+        # Buat loop baru
         new_loop = asyncio.new_event_loop()
         asyncio.set_event_loop(new_loop)
-        # Update global variable
-        global global_loop
-        global_loop = new_loop
+        loop_container.loop = new_loop
+        # Restart
         run_global_loop()
 
 # Jalankan loop di thread terpisah
@@ -8560,13 +8563,23 @@ loop_thread = threading.Thread(target=run_global_loop, daemon=True)
 loop_thread.start()
 print("✅ Global event loop is running")
 
-# ===== WEBHOOK ENDPOINT (FINAL VERSION) =====
+# ===== TEST ENDPOINT =====
+@flask_app.route('/test')
+def test():
+    """Test endpoint untuk cek Flask"""
+    return jsonify({
+        'status': 'ok',
+        'message': 'Flask is running!',
+        'endpoints': ['/', '/health', '/null', '/webhook', '/test']
+    }), 200
+
+# ===== WEBHOOK ENDPOINT =====
 @flask_app.route('/webhook', methods=['POST'])
 def webhook():
     """Handle incoming webhook updates from Telegram"""
     print("🔥🔥🔥 WEBHOOK DIPANGGIL!")
     
-    global bot_instance, global_loop
+    global bot_instance
     if bot_instance and hasattr(bot_instance, 'application'):
         try:
             update_data = request.get_json(force=True)
@@ -8576,10 +8589,10 @@ def webhook():
             # Buat update object
             update = Update.de_json(update_data, bot_instance.application.bot)
             
-            # Gunakan global loop - JANGAN BUAT LOOP BARU!
+            # Gunakan loop dari container
             asyncio.run_coroutine_threadsafe(
                 bot_instance.application.process_update(update),
-                global_loop
+                loop_container.loop  # ← Pakai loop_container.loop
             )
             print(f"✅ Task submitted to global loop for update {update_id}")
             
