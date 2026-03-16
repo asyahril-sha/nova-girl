@@ -849,8 +849,8 @@ class HippocampusMemory:
         - Recency
         - Importance
         """
-            query_embed = self._generate_embedding(query) if use_semantic else None
-            query_lower = query.lower()
+    query_embed = self._generate_embedding(query) if use_semantic else None
+    query_lower = query.lower()
         
         # Filter berdasarkan tipe dan importance
         candidates = [
