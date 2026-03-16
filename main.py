@@ -6967,11 +6967,11 @@ class GadisUltimateV60:
                     return Constants.ACTIVE_SESSION
                 else:
                     await query.edit_message_text("❌ Tidak ada sesi yang dapat dilanjutkan.")
-                    return ConversationHandler.END
+                    return ConversationHandler.END  # ← 20 spasi (di dalam else)
 
         elif query.data == "new":
             # Mulai baru - hapus semua data
-            self.end_session(user_id)  # hard reset, hapus dari memory dan database
+            self.end_session(user_id)
             # Tampilkan disclaimer
             disclaimer = self.get_disclaimer()
             keyboard = [[InlineKeyboardButton("✅ Saya setuju (18+)", callback_data="agree_18")]]
@@ -6981,9 +6981,9 @@ class GadisUltimateV60:
                 reply_markup=reply_markup,
                 parse_mode='Markdown'
             )
-            return Constants.SELECTING_ROLE
+            return Constants.SELECTING_ROLE  # ← 12 spasi (di dalam elif)
 
-    return ConversationHandler.END
+        return ConversationHandler.END  # ← 8 spasi (di luar if-elif)
 
     # Role-specific callbacks (untuk konsistensi)
     async def role_ipar_callback(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
