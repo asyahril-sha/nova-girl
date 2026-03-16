@@ -6964,19 +6964,19 @@ class GadisUltimateV60:
                     await query.edit_message_text("❌ Tidak ada sesi yang dapat dilanjutkan.")
                     return ConversationHandler.END
 
-    elif query.data == "new":
-        # Mulai baru - hapus semua data
-        self.end_session(user_id)  # hard reset, hapus dari memory dan database
-        # Tampilkan disclaimer
-        disclaimer = self.get_disclaimer()
-        keyboard = [[InlineKeyboardButton("✅ Saya setuju (18+)", callback_data="agree_18")]]
-        reply_markup = InlineKeyboardMarkup(keyboard)
-        await query.edit_message_text(
-            disclaimer, 
-            reply_markup=reply_markup,
-            parse_mode='Markdown'
-        )
-        return Constants.SELECTING_ROLE
+        elif query.data == "new":
+            # Mulai baru - hapus semua data
+            self.end_session(user_id)  # hard reset, hapus dari memory dan database
+            # Tampilkan disclaimer
+            disclaimer = self.get_disclaimer()
+            keyboard = [[InlineKeyboardButton("✅ Saya setuju (18+)", callback_data="agree_18")]]
+            reply_markup = InlineKeyboardMarkup(keyboard)
+            await query.edit_message_text(
+                disclaimer, 
+                reply_markup=reply_markup,
+                parse_mode='Markdown'
+            )
+            return Constants.SELECTING_ROLE
 
     return ConversationHandler.END
 
