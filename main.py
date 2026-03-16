@@ -5775,12 +5775,14 @@ class DatabaseManager:
             return c.lastrowid
 
     def get_relationship(self, user_id: int) -> Optional[Dict]:
-        """Dapatkan relationship berdasarkan user_id"""
+    """Dapatkan relationship berdasarkan user_id"""
+    try:
         with self.cursor() as c:
             c.execute("SELECT * FROM relationships WHERE user_id=?", (user_id,))
             row = c.fetchone()
             if row:
                 data = dict(row)
+                print(f"✅ Data ditemukan untuk user {user_id}: {data.get('bot_name')} ({data.get('bot_role')})")
                 # Parse JSON metadata
                 if data.get('metadata'):
                     try:
@@ -5788,7 +5790,12 @@ class DatabaseManager:
                     except:
                         data['metadata'] = {}
                 return data
-            return None
+            else:
+                print(f"ℹ️ Tidak ada data untuk user {user_id}")
+                return None
+    except Exception as e:
+        print(f"❌ Error in get_relationship: {e}")
+        return None
 
     def update_relationship(self, user_id: int, **kwargs) -> bool:
         """Update relationship dengan field dinamis"""
@@ -6846,14 +6853,17 @@ class GadisUltimateV60:
         username = update.effective_user.username or update.effective_user.first_name
 
         self.log_command('start', user_id, username)
-        print(f"🚀 START COMMAND from user {user_id}")
+        print(f"🚀🚀🚀 START COMMAND from user {user_id} 🚀🚀🚀")
+        print(f"📝 Username: {username}")
 
         # Bersihkan context
         if context.user_data:
             context.user_data.clear()
+            print(f"🧹 Context cleared for user {user_id}")
 
         # Cek apakah sudah ada sesi aktif
         if user_id in self.sessions:
+            print(f"⚠️ User {user_id} sudah memiliki sesi aktif")
             await update.message.reply_text(
                 "Kamu sudah memiliki sesi aktif. Ketik /close untuk menutup sesi atau /pause untuk jeda."
             )
@@ -6861,6 +6871,7 @@ class GadisUltimateV60:
 
         # Cek apakah ada sesi di-pause
         if user_id in self.paused_sessions:
+            print(f"⏸️ User {user_id} memiliki sesi di-pause")
             keyboard = [
                 [InlineKeyboardButton("✅ Lanjutkan", callback_data="unpause")],
                 [InlineKeyboardButton("🆕 Mulai Baru", callback_data="new")],
@@ -6870,23 +6881,36 @@ class GadisUltimateV60:
                 "⚠️ Ada sesi yang di-pause. Pilih:", 
                 reply_markup=reply_markup
             )
+            print(f"✅ Pilihan pause terkirim, return SELECTING_ROLE")
             return Constants.SELECTING_ROLE
 
-        # Cek apakah ada data hubungan di database (untuk kasus setelah /close)
-        rel = self.db.get_relationship(user_id)
-        if rel:
-            keyboard = [
-                [InlineKeyboardButton("✅ Lanjutkan", callback_data="unpause")],
-                [InlineKeyboardButton("🆕 Mulai Baru", callback_data="new")],
-            ]
-            reply_markup = InlineKeyboardMarkup(keyboard)
-            await update.message.reply_text(
-                "⚠️ Ada sesi yang tersimpan. Pilih:", 
-                reply_markup=reply_markup
-            )
-            return Constants.SELECTING_ROLE
+        # 🔴 CEK DATABASE - Pastikan ini berjalan
+        print(f"🔍 Mengecek database untuk user {user_id}")
+        try:
+            rel = self.db.get_relationship(user_id)
+            print(f"📊 Hasil query database: {rel}")
+        
+            if rel:
+                print(f"📂 Ditemukan data hubungan di database untuk user {user_id}")
+                print(f"📋 Data: {rel}")
+                keyboard = [
+                    [InlineKeyboardButton("✅ Lanjutkan", callback_data="unpause")],
+                    [InlineKeyboardButton("🆕 Mulai Baru", callback_data="new")],
+                ]
+                reply_markup = InlineKeyboardMarkup(keyboard)
+                await update.message.reply_text(
+                    "⚠️ Ada sesi yang tersimpan. Pilih:", 
+                    reply_markup=reply_markup
+                )
+                print(f"✅ Pilihan tersimpan terkirim, return SELECTING_ROLE")
+                return Constants.SELECTING_ROLE
+            else:
+                print(f"📂 Tidak ada data hubungan di database untuk user {user_id}")
+        except Exception as e:
+            print(f"❌ Error saat cek database: {e}")
 
         # Tampilkan disclaimer 18+
+        print(f"📤 Mengirim disclaimer ke user {user_id}")
         disclaimer = self.get_disclaimer()
         keyboard = [[InlineKeyboardButton("✅ Saya setuju (18+)", callback_data="agree_18")]]
         reply_markup = InlineKeyboardMarkup(keyboard)
@@ -6896,6 +6920,7 @@ class GadisUltimateV60:
             reply_markup=reply_markup,
             parse_mode='Markdown'
         )
+        print(f"✅ Disclaimer terkirim, return SELECTING_ROLE")
         return Constants.SELECTING_ROLE
 
     # ===== AGREE 18 CALLBACK =====
@@ -7290,26 +7315,27 @@ class GadisUltimateV60:
         """Menutup sesi tapi menyimpan memori di database"""
         user_id = update.effective_user.id
         username = update.effective_user.username or update.effective_user.first_name
-        
+    
         self.log_command('close', user_id, username)
-        
+        print(f"🔒 CLOSE COMMAND from user {user_id}")
+    
         # Cek apakah user memiliki sesi aktif
         if user_id not in self.sessions and user_id not in self.paused_sessions:
             await update.message.reply_text("❌ Tidak ada sesi aktif.")
             return
-        
+    
         # Konfirmasi close
         keyboard = [
             [InlineKeyboardButton("✅ Ya, tutup", callback_data="close_yes")],
             [InlineKeyboardButton("❌ Tidak", callback_data="close_no")]
         ]
         reply_markup = InlineKeyboardMarkup(keyboard)
-        
+    
         # Dapatkan statistik untuk ditampilkan
         session = self.get_session(user_id) if user_id in self.sessions else None
         level = session.level if session else 1
         climax = session.climax_count if session else 0
-        
+    
         await update.message.reply_text(
             f"⚠️ **Tutup Sesi?** ⚠️\n\n"
             f"Yakin ingin menutup sesi?\n\n"
@@ -7321,7 +7347,8 @@ class GadisUltimateV60:
             f"✅ Kamu bisa memulai role baru nanti dengan /start\n"
             f"❌ Sesi saat ini akan berakhir\n\n"
             f"Lanjutkan?",
-            reply_markup=reply_markup
+            reply_markup=reply_markup,
+            parse_mode='Markdown'
         )
         return Constants.CONFIRM_CLOSE
 
@@ -7330,28 +7357,44 @@ class GadisUltimateV60:
         query = update.callback_query
         await query.answer()
         user_id = query.from_user.id
-        
+    
         if query.data == "close_no":
             await query.edit_message_text("💕 Lanjutkan ngobrol...")
             return ConversationHandler.END
-        
+    
+        print(f"🔒 CLOSE_CONFIRM for user {user_id}")
+    
         # Dapatkan statistik sebelum close
         session = self.get_session(user_id)
         level = session.level if session else 1
         climax = session.climax_count if session else 0
         name = session.bot_name if session else "Aku"
-        
-        # Close session
-        self.close_session(user_id, save=True)
-        
+    
+        # 🔴 PASTIKAN DATA DISIMPAN KE DATABASE
+        if session:
+            print(f"💾 Menyimpan session user {user_id} ke database")
+            self.save_session_to_db(user_id)
+            print(f"✅ Session tersimpan")
+    
+        # Close session (soft reset)
+        self.close_session(user_id, save=False)  # save=False karena sudah disimpan
+    
+        # Verifikasi data tersimpan
+        rel = self.db.get_relationship(user_id)
+        if rel:
+            print(f"✅ Verifikasi: Data user {user_id} tersimpan di database")
+        else:
+            print(f"❌ Verifikasi: Data user {user_id} TIDAK tersimpan di database")
+    
         await query.edit_message_text(
             f"🔒 **Sesi ditutup**\n\n"
             f"Terima kasih sudah ngobrol dengan {name}.\n"
             f"Semua kenangan kita telah kusimpan rapi.\n\n"
             f"Level {level}/12 yang kita capai akan selalu kuingat.\n\n"
-            f"Ketik /start kapan saja untuk bertemu lagi... 💕"
+            f"Ketik /start kapan saja untuk bertemu lagi... 💕",
+            parse_mode='Markdown'
         )
-        
+    
         logger.info(f"User {user_id} closed session (level {level})")
         return ConversationHandler.END
 
