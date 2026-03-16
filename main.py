@@ -7107,7 +7107,7 @@ class GadisUltimateV60:
 
     async def role_pdkt_callback(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         print(f"🔥 role_pdkt_callback dipanggil")
-        return await self.role_callback(update, context
+        return await self.role_callback(update, context)
 
     # ===== STATUS COMMAND =====
     
