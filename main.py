@@ -7800,7 +7800,7 @@ class GadisUltimateV60:
         text += f"• Current arc: {s_stats['current_arc'] or '-'}\n"
         text += f"• Predictions: {s_stats['total_predictions']}\n"
         
-        await update.message.reply_text(text, parse_mode='Markdown')
+        await update.message.reply_text(text)
     
     async def _background_thought_processing(self, user_id: int, context_data: Dict):
         """Background task untuk inner thoughts"""
