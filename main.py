@@ -7438,11 +7438,9 @@ class GadisUltimateV60:
             f"• Total pesan: {stats['total_messages']}"
         )
     
-    # Kirim tanpa parse_mode
-    await update.message.reply_text(text)
-        
-        await update.message.reply_text(text, parse_mode='Markdown')
-
+        # Kirim tanpa parse_mode
+        await update.message.reply_text(text)
+     
     async def stats_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         """Tampilkan statistik lengkap bot (untuk admin)"""
         user_id = update.effective_user.id
