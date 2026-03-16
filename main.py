@@ -6897,7 +6897,40 @@ class GadisUltimateV60:
             parse_mode='Markdown'
         )
         return Constants.SELECTING_ROLE
-
+        
+    async def agree_18_callback(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
+        """Callback setelah user setuju disclaimer"""
+        query = update.callback_query
+        await query.answer()
+    
+        user_id = query.from_user.id
+        logger.debug(f"User {user_id} agreed to 18+ disclaimer")
+    
+        # Tampilkan pilihan role dengan deskripsi
+        keyboard = [
+            [InlineKeyboardButton("👨‍👩‍👧‍👦 Ipar", callback_data="role_ipar")],
+            [InlineKeyboardButton("💼 Teman Kantor", callback_data="role_teman_kantor")],
+            [InlineKeyboardButton("💃 Janda", callback_data="role_janda")],
+            [InlineKeyboardButton("🦹 Pelakor", callback_data="role_pelakor")],
+            [InlineKeyboardButton("💍 Istri Orang", callback_data="role_istri_orang")],
+            [InlineKeyboardButton("🌿 PDKT", callback_data="role_pdkt")]
+        ]
+        reply_markup = InlineKeyboardMarkup(keyboard)
+    
+        await query.edit_message_text(
+            "✨ **Pilih Role untukku**\n\n"
+            "Setiap role punya karakter dan gaya bicara berbeda:\n"
+            "• 👨‍👩‍👧‍👦 **Ipar** - Saudara ipar yang nakal\n"
+            "• 💼 **Teman Kantor** - Rekan kerja yang mesra\n"
+            "• 💃 **Janda** - Janda muda yang genit\n"
+            "• 🦹 **Pelakor** - Perebut laki orang\n"
+            "• 💍 **Istri Orang** - Istri orang lain\n"
+            "• 🌿 **PDKT** - Sedang pendekatan\n\n"
+            "Pilih salah satu:",
+            reply_markup=reply_markup
+        )
+        return Constants.SELECTING_ROLE
+        
     async def role_callback(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         """Callback setelah user memilih role"""
         query = update.callback_query
@@ -8724,11 +8757,13 @@ async def main():
     print("  • Application initialized")
 
     # ===== CONVERSATION HANDLERS =====
+    # Di BAB 12, bagian START Conversation Handler
     start_conv = ConversationHandler(
         entry_points=[CommandHandler('start', bot.start_command)],
         states={
             Constants.SELECTING_ROLE: [
-                CallbackQueryHandler(bot.agree_18_callback, pattern='^agree_18$'),
+                # HAPUS INI: CallbackQueryHandler(bot.agree_18_callback, pattern='^agree_18$'),
+                # LANGSUNG KE PEMILIHAN ROLE:
                 CallbackQueryHandler(bot.start_pause_callback, pattern='^(unpause|new)$'),
                 CallbackQueryHandler(bot.role_ipar_callback, pattern='^role_ipar$'),
                 CallbackQueryHandler(bot.role_teman_kantor_callback, pattern='^role_teman_kantor$'),
