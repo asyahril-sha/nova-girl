@@ -6881,17 +6881,17 @@ class GadisUltimateV60:
             )
             return Constants.SELECTING_ROLE
 
-    # Tampilkan disclaimer 18+
-    disclaimer = self.get_disclaimer()
-    keyboard = [[InlineKeyboardButton("✅ Saya setuju (18+)", callback_data="agree_18")]]
-    reply_markup = InlineKeyboardMarkup(keyboard)
+        # Tampilkan disclaimer 18+
+        disclaimer = self.get_disclaimer()
+        keyboard = [[InlineKeyboardButton("✅ Saya setuju (18+)", callback_data="agree_18")]]
+        reply_markup = InlineKeyboardMarkup(keyboard)
 
-        await update.message.reply_text(
-            disclaimer, 
-            reply_markup=reply_markup,
-            parse_mode='Markdown'
-        )
-        return Constants.SELECTING_ROLE
+            await update.message.reply_text(
+                disclaimer, 
+                reply_markup=reply_markup,
+                parse_mode='Markdown'
+            )
+            return Constants.SELECTING_ROLE
 
     async def role_callback(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         """Callback setelah user memilih role"""
