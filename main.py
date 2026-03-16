@@ -6834,9 +6834,9 @@ class GadisUltimateV60:
         if user_id in self.user_silence_tracker:
             return (datetime.now() - self.user_silence_tracker[user_id]).total_seconds()
         return 0
-    
-    # ===================== BAB 9: MAIN BOT CLASS - COMMANDS =====================
-    # Bagian 9.1: Start & Role Selection
+
+# ===================== BAB 9: MAIN BOT CLASS - COMMANDS =====================
+# Bagian 9.1: Start & Role Selection
 
     # ===== START COMMAND =====
     
@@ -6897,15 +6897,19 @@ class GadisUltimateV60:
             parse_mode='Markdown'
         )
         return Constants.SELECTING_ROLE
-        
+
+    # ===== AGREE 18 CALLBACK =====
+    
     async def agree_18_callback(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         """Callback setelah user setuju disclaimer"""
+        print("🔥🔥🔥 AGREE_18_CALLBACK DIPANGGIL!")
+        
         query = update.callback_query
         await query.answer()
-    
+        
         user_id = query.from_user.id
-        logger.debug(f"User {user_id} agreed to 18+ disclaimer")
-    
+        print(f"📝 User {user_id} agreed to 18+ disclaimer")
+        
         # Tampilkan pilihan role dengan deskripsi
         keyboard = [
             [InlineKeyboardButton("👨‍👩‍👧‍👦 Ipar", callback_data="role_ipar")],
@@ -6916,7 +6920,7 @@ class GadisUltimateV60:
             [InlineKeyboardButton("🌿 PDKT", callback_data="role_pdkt")]
         ]
         reply_markup = InlineKeyboardMarkup(keyboard)
-    
+        
         await query.edit_message_text(
             "✨ **Pilih Role untukku**\n\n"
             "Setiap role punya karakter dan gaya bicara berbeda:\n"
@@ -6927,10 +6931,13 @@ class GadisUltimateV60:
             "• 💍 **Istri Orang** - Istri orang lain\n"
             "• 🌿 **PDKT** - Sedang pendekatan\n\n"
             "Pilih salah satu:",
-            reply_markup=reply_markup
+            reply_markup=reply_markup,
+            parse_mode='Markdown'
         )
         return Constants.SELECTING_ROLE
-        
+
+    # ===== ROLE CALLBACK =====
+    
     async def role_callback(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         """Callback setelah user memilih role"""
         query = update.callback_query
@@ -6938,6 +6945,8 @@ class GadisUltimateV60:
         
         user_id = query.from_user.id
         role = query.data.replace("role_", "")
+        
+        print(f"🔥🔥🔥 ROLE_CALLBACK DIPANGGIL! User: {user_id}, Role: {role}")
         
         # Pilih nama random sesuai role
         name = random.choice(Constants.ROLE_NAMES.get(role, ["Aurora"]))
@@ -6952,6 +6961,7 @@ class GadisUltimateV60:
         success = self.create_session(user_id, name, role, physical, initial_clothing)
         
         if not success:
+            print(f"❌ Gagal membuat session untuk user {user_id}")
             await query.edit_message_text("❌ Gagal membuat session. Coba lagi.")
             return ConversationHandler.END
         
@@ -6961,19 +6971,26 @@ class GadisUltimateV60:
         # Tambah info pakaian awal
         intro += f"\n\n💃 *Hari ini aku pakai {initial_clothing}*"
         
-        await query.edit_message_text(intro)
+        await query.edit_message_text(intro, parse_mode='Markdown')
         
         logger.info(f"✨ New relationship: User {user_id} as {name} ({role})")
+        print(f"✅ Session created for user {user_id} as {name} ({role})")
         
         return Constants.ACTIVE_SESSION
 
+    # ===== START PAUSE CALLBACK =====
+    
     async def start_pause_callback(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         """Callback untuk memilih lanjutkan atau mulai baru saat ada session tersimpan"""
+        print(f"🔥 START_PAUSE_CALLBACK DIPANGGIL!")
+        
         query = update.callback_query
         await query.answer()
         user_id = query.from_user.id
 
         if query.data == "unpause":
+            print(f"📝 User {user_id} memilih unpause")
+            
             # Coba unpause dari paused_sessions terlebih dahulu
             if self.unpause_session(user_id):
                 session = self.get_session(user_id)
@@ -6981,7 +6998,8 @@ class GadisUltimateV60:
                 await query.edit_message_text(
                     f"▶️ **Sesi dilanjutkan!**\n\n"
                     f"Aku masih pakai *{clothing}*\n\n"
-                    f"Kangen... 💕"
+                    f"Kangen... 💕",
+                    parse_mode='Markdown'
                 )
                 return Constants.ACTIVE_SESSION
             else:
@@ -6995,16 +7013,21 @@ class GadisUltimateV60:
                     await query.edit_message_text(
                         f"▶️ **Sesi dilanjutkan!**\n\n"
                         f"Aku masih pakai *{clothing}*\n\n"
-                        f"Kangen... 💕"
+                        f"Kangen... 💕",
+                        parse_mode='Markdown'
                     )
                     return Constants.ACTIVE_SESSION
                 else:
+                    print(f"❌ Tidak ada sesi untuk user {user_id}")
                     await query.edit_message_text("❌ Tidak ada sesi yang dapat dilanjutkan.")
-                    return ConversationHandler.END  # ← 20 spasi (di dalam else)
+                    return ConversationHandler.END
 
         elif query.data == "new":
+            print(f"📝 User {user_id} memulai baru")
+            
             # Mulai baru - hapus semua data
-            self.end_session(user_id)
+            self.end_session(user_id)  # hard reset, hapus dari memory dan database
+            
             # Tampilkan disclaimer
             disclaimer = self.get_disclaimer()
             keyboard = [[InlineKeyboardButton("✅ Saya setuju (18+)", callback_data="agree_18")]]
@@ -7014,27 +7037,34 @@ class GadisUltimateV60:
                 reply_markup=reply_markup,
                 parse_mode='Markdown'
             )
-            return Constants.SELECTING_ROLE  # ← 12 spasi (di dalam elif)
+            return Constants.SELECTING_ROLE
 
-        return ConversationHandler.END  # ← 8 spasi (di luar if-elif)
+        return ConversationHandler.END
 
-    # Role-specific callbacks (untuk konsistensi)
+    # ===== ROLE-SPECIFIC CALLBACKS =====
+    
     async def role_ipar_callback(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
+        print(f"🔥 role_ipar_callback dipanggil")
         return await self.role_callback(update, context)
 
     async def role_teman_kantor_callback(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
+        print(f"🔥 role_teman_kantor_callback dipanggil")
         return await self.role_callback(update, context)
 
     async def role_janda_callback(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
+        print(f"🔥 role_janda_callback dipanggil")
         return await self.role_callback(update, context)
 
     async def role_pelakor_callback(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
+        print(f"🔥 role_pelakor_callback dipanggil")
         return await self.role_callback(update, context)
 
     async def role_istri_orang_callback(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
+        print(f"🔥 role_istri_orang_callback dipanggil")
         return await self.role_callback(update, context)
 
     async def role_pdkt_callback(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
+        print(f"🔥 role_pdkt_callback dipanggil")
         return await self.role_callback(update, context)
 
     # ===== STATUS COMMAND =====
