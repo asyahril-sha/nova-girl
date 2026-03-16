@@ -5713,31 +5713,81 @@ class DatabaseManager:
                            physical_attrs: Dict = None,
                            clothing: str = None,
                            metadata: Dict = None) -> int:
-        # ... (kode yang sudah ada, tidak diubah) ...
-        pass
-
-    def get_relationship(self, user_id: int) -> Optional[Dict]:
-        """Dapatkan relationship berdasarkan user_id"""
+        """
+        Buat hubungan baru dengan atribut fisik dan pakaian opsional
+        Returns: relationship_id
+        """
         try:
+            print(f"🔨 CREATE_RELATIONSHIP: user={user_id}, name={bot_name}, role={bot_role}")
+            
             with self.cursor() as c:
-                c.execute("SELECT * FROM relationships WHERE user_id=?", (user_id,))
-                row = c.fetchone()
-                if row:
-                    data = dict(row)
-                    print(f"✅ Data ditemukan untuk user {user_id}: {data.get('bot_name')} ({data.get('bot_role')}) Level {data.get('level')}")
-                    # Parse JSON metadata
-                    if data.get('metadata'):
-                        try:
-                            data['metadata'] = json.loads(data['metadata'])
-                        except:
-                            data['metadata'] = {}
-                    return data
+                # Cek apakah sudah ada
+                c.execute("SELECT id FROM relationships WHERE user_id=?", (user_id,))
+                existing = c.fetchone()
+                if existing:
+                    print(f"⚠️ Relationship already exists for user {user_id}, ID: {existing[0]}")
+                    return existing[0]
+                
+                # Insert data
+                if physical_attrs and clothing:
+                    c.execute("""
+                        INSERT INTO relationships 
+                        (user_id, bot_name, bot_role, last_active, last_clothing_change,
+                         hair_style, height, weight, breast_size, hijab, most_sensitive_area,
+                         skin_color, face_shape, personality, current_clothing, metadata)
+                        VALUES (?, ?, ?, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP,
+                                ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    """, (
+                        user_id, bot_name, bot_role,
+                        physical_attrs.get('hair_style'),
+                        physical_attrs.get('height'),
+                        physical_attrs.get('weight'),
+                        physical_attrs.get('breast_size'),
+                        physical_attrs.get('hijab', 0),
+                        physical_attrs.get('most_sensitive_area'),
+                        physical_attrs.get('skin'),
+                        physical_attrs.get('face_shape'),
+                        physical_attrs.get('personality'),
+                        clothing,
+                        json.dumps(metadata) if metadata else None
+                    ))
+                elif physical_attrs:
+                    c.execute("""
+                        INSERT INTO relationships 
+                        (user_id, bot_name, bot_role, last_active,
+                         hair_style, height, weight, breast_size, hijab, most_sensitive_area,
+                         skin_color, face_shape, personality, metadata)
+                        VALUES (?, ?, ?, CURRENT_TIMESTAMP,
+                                ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    """, (
+                        user_id, bot_name, bot_role,
+                        physical_attrs.get('hair_style'),
+                        physical_attrs.get('height'),
+                        physical_attrs.get('weight'),
+                        physical_attrs.get('breast_size'),
+                        physical_attrs.get('hijab', 0),
+                        physical_attrs.get('most_sensitive_area'),
+                        physical_attrs.get('skin'),
+                        physical_attrs.get('face_shape'),
+                        physical_attrs.get('personality'),
+                        json.dumps(metadata) if metadata else None
+                    ))
                 else:
-                    print(f"ℹ️ Tidak ada data untuk user {user_id} di database")
-                    return None
+                    c.execute("""
+                        INSERT INTO relationships 
+                        (user_id, bot_name, bot_role, last_active, metadata)
+                        VALUES (?, ?, ?, CURRENT_TIMESTAMP, ?)
+                    """, (user_id, bot_name, bot_role, json.dumps(metadata) if metadata else None))
+                
+                rel_id = c.lastrowid
+                print(f"✅ Relationship created with ID: {rel_id}")
+                return rel_id
+                
         except Exception as e:
-            print(f"❌ Error in get_relationship: {e}")
-            return None
+            print(f"❌ Error in create_relationship: {e}")
+            import traceback
+            traceback.print_exc()
+            return 0
 
     def update_relationship(self, user_id: int, **kwargs) -> bool:
         """Update relationship dengan field dinamis"""
@@ -6380,33 +6430,47 @@ class GadisUltimateV60:
     def create_session(self, user_id: int, bot_name: str, bot_role: str, 
                       physical_attrs: Dict, clothing: str) -> bool:
         """Buat session baru untuk user"""
-        # Simpan ke database
-        rel_id = self.db.create_relationship(
-            user_id, bot_name, bot_role,
-            physical_attrs=physical_attrs,
-            clothing=clothing
-        )
-        
-        if not rel_id:
+        try:
+            print(f"🔨 CREATE_SESSION: user={user_id}, name={bot_name}, role={bot_role}")
+            
+            # Simpan ke database
+            rel_id = self.db.create_relationship(
+                user_id, bot_name, bot_role,
+                physical_attrs=physical_attrs,
+                clothing=clothing
+            )
+            
+            if not rel_id:
+                print(f"❌ Gagal membuat relationship di database untuk user {user_id}")
+                return False
+            
+            print(f"✅ Relationship created with ID: {rel_id}")
+            
+            # Buat session
+            session = UserSession(
+                user_id=user_id,
+                relationship_id=rel_id,
+                bot_name=bot_name,
+                bot_role=bot_role,
+                bot_physical=physical_attrs,
+                bot_clothing=clothing
+            )
+            
+            self.sessions[user_id] = session
+            print(f"✅ Session created in memory for user {user_id}")
+            
+            # Inisialisasi leveling
+            self.leveling.start_session(user_id)
+            print(f"✅ Leveling started for user {user_id}")
+            
+            logger.info(f"✨ New session created: User {user_id} as {bot_name} ({bot_role})")
+            return True
+            
+        except Exception as e:
+            print(f"❌ Error in create_session: {e}")
+            import traceback
+            traceback.print_exc()
             return False
-        
-        # Buat session
-        session = UserSession(
-            user_id=user_id,
-            relationship_id=rel_id,
-            bot_name=bot_name,
-            bot_role=bot_role,
-            bot_physical=physical_attrs,
-            bot_clothing=clothing
-        )
-        
-        self.sessions[user_id] = session
-        
-        # Inisialisasi leveling
-        self.leveling.start_session(user_id)
-        
-        logger.info(f"✨ New session created: User {user_id} as {bot_name} ({bot_role})")
-        return True
 
     def pause_session(self, user_id: int) -> bool:
         """Pause session"""
@@ -6912,43 +6976,57 @@ class GadisUltimateV60:
     
     async def role_callback(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         """Callback setelah user memilih role"""
-        query = update.callback_query
-        await query.answer()
-        
-        user_id = query.from_user.id
-        role = query.data.replace("role_", "")
-        
-        print(f"🔥🔥🔥 ROLE_CALLBACK DIPANGGIL! User: {user_id}, Role: {role}")
-        
-        # Pilih nama random sesuai role
-        name = random.choice(Constants.ROLE_NAMES.get(role, ["Aurora"]))
-        
-        # Generate atribut fisik
-        physical = PhysicalAttributesGenerator.generate(role)
-        
-        # Generate pakaian awal
-        initial_clothing = ClothingSystem.generate_clothing(role)
-        
-        # Buat session
-        success = self.create_session(user_id, name, role, physical, initial_clothing)
-        
-        if not success:
-            print(f"❌ Gagal membuat session untuk user {user_id}")
-            await query.edit_message_text("❌ Gagal membuat session. Coba lagi.")
+        try:
+            query = update.callback_query
+            await query.answer()
+            
+            user_id = query.from_user.id
+            role = query.data.replace("role_", "")
+            
+            print(f"🔥🔥🔥 ROLE_CALLBACK DIPANGGIL! User: {user_id}, Role: {role}")
+            
+            # Pilih nama random sesuai role
+            name = random.choice(Constants.ROLE_NAMES.get(role, ["Aurora"]))
+            print(f"📋 Nama terpilih: {name}")
+            
+            # Generate atribut fisik
+            physical = PhysicalAttributesGenerator.generate(role)
+            print(f"📋 Physical attributes generated")
+            
+            # Generate pakaian awal
+            initial_clothing = ClothingSystem.generate_clothing(role)
+            print(f"📋 Initial clothing: {initial_clothing}")
+            
+            # Buat session
+            print(f"🔨 Memanggil create_session...")
+            success = self.create_session(user_id, name, role, physical, initial_clothing)
+            
+            if not success:
+                print(f"❌ Gagal membuat session untuk user {user_id}")
+                await query.edit_message_text("❌ Gagal membuat session. Coba lagi.")
+                return ConversationHandler.END
+            
+            print(f"✅ Session berhasil dibuat")
+            
+            # Intro dengan deskripsi fisik
+            intro = PhysicalAttributesGenerator.format_intro(name, role, physical)
+            
+            # Tambah info pakaian awal
+            intro += f"\n\n💃 *Hari ini aku pakai {initial_clothing}*"
+            
+            await query.edit_message_text(intro, parse_mode='Markdown')
+            
+            logger.info(f"✨ New relationship: User {user_id} as {name} ({role})")
+            print(f"✅ New relationship created for user {user_id}")
+            
+            return Constants.ACTIVE_SESSION
+            
+        except Exception as e:
+            print(f"❌ Error in role_callback: {e}")
+            import traceback
+            traceback.print_exc()
+            await query.edit_message_text("❌ Terjadi error. Silakan coba lagi.")
             return ConversationHandler.END
-        
-        # Intro dengan deskripsi fisik
-        intro = PhysicalAttributesGenerator.format_intro(name, role, physical)
-        
-        # Tambah info pakaian awal
-        intro += f"\n\n💃 *Hari ini aku pakai {initial_clothing}*"
-        
-        await query.edit_message_text(intro, parse_mode='Markdown')
-        
-        logger.info(f"✨ New relationship: User {user_id} as {name} ({role})")
-        print(f"✅ Session created for user {user_id} as {name} ({role})")
-        
-        return Constants.ACTIVE_SESSION
 
     # ===== START PAUSE CALLBACK =====
     
@@ -7029,7 +7107,7 @@ class GadisUltimateV60:
 
     async def role_pdkt_callback(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         print(f"🔥 role_pdkt_callback dipanggil")
-        return await self.role_callback(update, context)
+        return await self.role_callback(update, context
 
     # ===== STATUS COMMAND =====
     
