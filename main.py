@@ -5775,27 +5775,27 @@ class DatabaseManager:
             return c.lastrowid
 
     def get_relationship(self, user_id: int) -> Optional[Dict]:
-    """Dapatkan relationship berdasarkan user_id"""
-    try:
-        with self.cursor() as c:
-            c.execute("SELECT * FROM relationships WHERE user_id=?", (user_id,))
-            row = c.fetchone()
-            if row:
-                data = dict(row)
-                print(f"✅ Data ditemukan untuk user {user_id}: {data.get('bot_name')} ({data.get('bot_role')})")
-                # Parse JSON metadata
-                if data.get('metadata'):
-                    try:
-                        data['metadata'] = json.loads(data['metadata'])
-                    except:
-                        data['metadata'] = {}
-                return data
-            else:
-                print(f"ℹ️ Tidak ada data untuk user {user_id}")
-                return None
-    except Exception as e:
-        print(f"❌ Error in get_relationship: {e}")
-        return None
+        """Dapatkan relationship berdasarkan user_id"""
+        try:
+            with self.cursor() as c:
+                c.execute("SELECT * FROM relationships WHERE user_id=?", (user_id,))
+                row = c.fetchone()
+                if row:
+                    data = dict(row)
+                    print(f"✅ Data ditemukan untuk user {user_id}: {data.get('bot_name')} ({data.get('bot_role')})")
+                    # Parse JSON metadata
+                    if data.get('metadata'):
+                        try:
+                            data['metadata'] = json.loads(data['metadata'])
+                        except:
+                            data['metadata'] = {}
+                    return data
+                else:
+                    print(f"ℹ️ Tidak ada data untuk user {user_id}")
+                    return None
+        except Exception as e:
+            print(f"❌ Error in get_relationship: {e}")
+            return None
 
     def update_relationship(self, user_id: int, **kwargs) -> bool:
         """Update relationship dengan field dinamis"""
