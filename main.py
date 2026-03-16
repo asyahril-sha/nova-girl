@@ -6835,6 +6835,11 @@ class GadisUltimateV60:
             return (datetime.now() - self.user_silence_tracker[user_id]).total_seconds()
         return 0
     
+    # ===================== BAB 9: MAIN BOT CLASS - COMMANDS =====================
+    # Bagian 9.1: Start & Role Selection
+
+    # ===== START COMMAND =====
+    
     async def start_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         """Memulai hubungan baru dengan bot"""
         user_id = update.effective_user.id
@@ -6886,12 +6891,12 @@ class GadisUltimateV60:
         keyboard = [[InlineKeyboardButton("✅ Saya setuju (18+)", callback_data="agree_18")]]
         reply_markup = InlineKeyboardMarkup(keyboard)
 
-            await update.message.reply_text(
-                disclaimer, 
-                reply_markup=reply_markup,
-                parse_mode='Markdown'
-            )
-            return Constants.SELECTING_ROLE
+        await update.message.reply_text(
+            disclaimer, 
+            reply_markup=reply_markup,
+            parse_mode='Markdown'
+        )
+        return Constants.SELECTING_ROLE
 
     async def role_callback(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         """Callback setelah user memilih role"""
