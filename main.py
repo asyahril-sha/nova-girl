@@ -8792,8 +8792,7 @@ async def main():
         entry_points=[CommandHandler('start', bot.start_command)],
         states={
             Constants.SELECTING_ROLE: [
-                # HAPUS INI: CallbackQueryHandler(bot.agree_18_callback, pattern='^agree_18$'),
-                # LANGSUNG KE PEMILIHAN ROLE:
+                CallbackQueryHandler(bot.agree_18_callback, pattern='^agree_18$'),
                 CallbackQueryHandler(bot.start_pause_callback, pattern='^(unpause|new)$'),
                 CallbackQueryHandler(bot.role_ipar_callback, pattern='^role_ipar$'),
                 CallbackQueryHandler(bot.role_teman_kantor_callback, pattern='^role_teman_kantor$'),
