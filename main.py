@@ -18,6 +18,7 @@ import pickle
 import re
 import threading
 import numpy as np
+import gc
 from datetime import datetime, timedelta
 from enum import Enum
 from collections import defaultdict
@@ -6309,15 +6310,22 @@ class GadisUltimateV60:
     
     def get_session(self, user_id: int) -> Optional[UserSession]:
         """Dapatkan atau buat session untuk user"""
-        if user_id not in self.sessions:
+        try:
+            # Cek di memory dulu
+            if user_id in self.sessions:
+                return self.sessions.get(user_id)
+        
             # Coba load dari database
             rel = self.db.get_relationship(user_id)
             if rel:
+                print(f"📂 Loading session for user {user_id} from database")
                 self._load_session_from_db(user_id, rel)
-            else:
-                return None
+                return self.sessions.get(user_id)
         
-        return self.sessions.get(user_id)
+            return None
+        except Exception as e:
+            print(f"❌ Error in get_session for user {user_id}: {e}")
+            return None
 
     def _load_session_from_db(self, user_id: int, rel: Dict):
         """Load session dari database"""
@@ -6493,31 +6501,69 @@ class GadisUltimateV60:
 
     def close_session(self, user_id: int, save: bool = True) -> bool:
         """Close session (soft reset - save to DB)"""
-        if save and user_id in self.sessions:
-            self.save_session_to_db(user_id)
+        try:
+            if save and user_id in self.sessions:
+                self.save_session_to_db(user_id)
         
-        # Cleanup memory
-        self._cleanup_user_memory(user_id)
+            # Cleanup memory
+            self._cleanup_user_memory(user_id)
         
-        logger.info(f"🔒 Session closed for user {user_id}")
-        return True
+            # Bersihkan juga dari aplikasi tapi simpan di DB
+            if hasattr(self, 'application') and self.application:
+                try:
+                    # Hapus conversation dari memory tapi data tetap di DB
+                    for handler in self.application.handlers.get(0, []):
+                        if hasattr(handler, 'conversations'):
+                            keys_to_remove = []
+                            for key in handler.conversations.keys():
+                                if key[0] == user_id:
+                                    keys_to_remove.append(key)
+                            for key in keys_to_remove:
+                                del handler.conversations[key]
+                except Exception as e:
+                    logger.error(f"Error cleaning conversations: {e}")
+        
+            logger.info(f"🔒 Session closed for user {user_id}")
+            return True
+        except Exception as e:
+            logger.error(f"Error closing session for user {user_id}: {e}")
+            return False
 
     def end_session(self, user_id: int) -> bool:
         """End session (hard reset - delete from DB)"""
-        # Delete from database
-        self.db.delete_relationship(user_id)
+        try:
+            # Delete from database
+            self.db.delete_relationship(user_id)
         
-        # Reset analyzer
-        self.analyzer.reset_user(user_id)
+            # Reset analyzer
+            self.analyzer.reset_user(user_id)
         
-        # Reset leveling
-        self.leveling.reset(user_id)
+            # Reset leveling
+            self.leveling.reset(user_id)
         
-        # Cleanup all memory
-        self._cleanup_user_memory(user_id, hard=True)
+            # Cleanup all memory
+            self._cleanup_user_memory(user_id, hard=True)
         
-        logger.info(f"💔 Session ended (hard reset) for user {user_id}")
-        return True
+            # Bersihkan juga dari aplikasi
+            if hasattr(self, 'application') and self.application:
+                try:
+                    # Hapus conversation data jika ada
+                    for handler in self.application.handlers.get(0, []):
+                        if hasattr(handler, 'conversations'):
+                            keys_to_remove = []
+                            for key in handler.conversations.keys():
+                                if key[0] == user_id:
+                                    keys_to_remove.append(key)
+                            for key in keys_to_remove:
+                                del handler.conversations[key]
+                except Exception as e:
+                    logger.error(f"Error cleaning conversations: {e}")
+        
+            logger.info(f"💔 Session ended (hard reset) for user {user_id}")
+            return True
+        except Exception as e:
+            logger.error(f"Error ending session for user {user_id}: {e}")
+            return False
 
     def _cleanup_user_memory(self, user_id: int, hard: bool = False):
         """Bersihkan semua data user dari memory"""
@@ -6555,7 +6601,11 @@ class GadisUltimateV60:
         
         # Clear AI history
         self.ai.clear_history(user_id)
-        
+
+          # Force garbage collection
+        import gc
+        gc.collect()
+            
         logger.info(f"🧹 Hard cleanup for user {user_id}")
 
     def save_session_to_db(self, user_id: int) -> bool:
@@ -6724,11 +6774,13 @@ class GadisUltimateV60:
             "Klik 'Saya setuju' untuk melanjutkan."
         )
 
+
+
     def get_help_text(self, update: Update = None) -> str:
-        """Dapatkan teks bantuan"""
+        """Dapatkan teks bantuan - tanpa Markdown"""
         help_text = (
-            "📚 **BANTUAN GADIS ULTIMATE V60**\n\n"
-            "**🔹 COMMANDS UTAMA**\n"
+            "📚 BANTUAN GADIS ULTIMATE V60\n\n"
+            "🔹 COMMANDS UTAMA\n"
             "/start - Mulai hubungan baru\n"
             "/status - Lihat status lengkap\n"
             "/dominant [level] - Set mode dominan\n"
@@ -6737,34 +6789,35 @@ class GadisUltimateV60:
             "/close - Tutup sesi (simpan memori)\n"
             "/end - Akhiri hubungan & hapus data\n"
             "/help - Tampilkan bantuan\n\n"
-            "**🔹 LEVEL DOMINAN**\n"
+            "🔹 LEVEL DOMINAN\n"
             "• normal - Mode biasa\n"
             "• dominan - Mode dominan\n"
             "• sangat dominan - Mode sangat dominan\n"
             "• agresif - Mode agresif\n"
             "• patuh - Mode patuh\n\n"
-            "**🔹 TIPS CHAT**\n"
+            "🔹 TIPS CHAT\n"
             "• Gunakan *tindakan* seperti *peluk*, *cium*\n"
             "• Sebut area sensitif sesuai perkenalan bot\n"
             "• Bilang 'kamu yang atur' untuk mode dominan\n"
             "• Bilang 'aku yang atur' untuk mode submissive\n"
             "• Level 7+ bot akan lebih vulgar dan inisiatif\n\n"
-            "**🔹 TARGET LEVEL**\n"
+            "🔹 TARGET LEVEL\n"
             "Level 1-12 dalam 45 menit / 45 pesan!"
         )
-        
-        # Tambah admin commands jika user adalah admin
+    
         if update and self.is_admin(update.effective_user.id):
-            help_text += "\n\n**🔐 ADMIN COMMANDS**\n"
+            help_text += "\n\n🔐 ADMIN COMMANDS\n"
             help_text += "/admin - Menu admin\n"
-            help_text += "/broadcast <pesan> - Kirim ke semua user\n"
             help_text += "/stats - Statistik bot\n"
-            help_text += "/reload - Reload konfigurasi\n"
-            help_text += "/shutdown - Matikan bot\n"
-            help_text += "/list_users - Lihat daftar user\n"
-            help_text += "/get_user <id> - Detail user\n"
             help_text += "/db_stats - Statistik database\n"
-        
+            help_text += "/reload - Reload konfigurasi\n"
+            help_text += "/list_users - Daftar user\n"
+            help_text += "/get_user <id> - Detail user\n"
+            help_text += "/force_reset <user_id> - Reset user\n"
+            help_text += "/backup_db - Backup database\n"
+            help_text += "/vacuum - Optimasi database\n"
+            help_text += "/memory_stats <user_id> - Statistik memori"
+    
         return help_text
 
     def log_command(self, command: str, user_id: int, username: str):
@@ -6786,16 +6839,21 @@ class GadisUltimateV60:
         """Memulai hubungan baru dengan bot"""
         user_id = update.effective_user.id
         username = update.effective_user.username or update.effective_user.first_name
-        
+
         self.log_command('start', user_id, username)
-        
+        print(f"🚀 START COMMAND from user {user_id}")
+
+        # Bersihkan context
+        if context.user_data:
+            context.user_data.clear()
+
         # Cek apakah sudah ada sesi aktif
         if user_id in self.sessions:
             await update.message.reply_text(
                 "Kamu sudah memiliki sesi aktif. Ketik /close untuk menutup sesi atau /pause untuk jeda."
             )
             return ConversationHandler.END
-        
+
         # Cek apakah ada sesi di-pause
         if user_id in self.paused_sessions:
             keyboard = [
@@ -6808,63 +6866,32 @@ class GadisUltimateV60:
                 reply_markup=reply_markup
             )
             return Constants.SELECTING_ROLE
-        
-        # Tampilkan disclaimer 18+
-        disclaimer = self.get_disclaimer()
-        keyboard = [[InlineKeyboardButton("✅ Saya setuju (18+)", callback_data="agree_18")]]
-        reply_markup = InlineKeyboardMarkup(keyboard)
-        
-        await update.message.reply_text(
-            disclaimer, 
-            reply_markup=reply_markup,
-            parse_mode='Markdown'
-        )
-        return Constants.SELECTING_ROLE
-        
-        # Tampilkan disclaimer 18+
-        disclaimer = self.get_disclaimer()
-        keyboard = [[InlineKeyboardButton("✅ Saya setuju (18+)", callback_data="agree_18")]]
-        reply_markup = InlineKeyboardMarkup(keyboard)
-        
-        await update.message.reply_text(
-            disclaimer, 
-            reply_markup=reply_markup,
-            parse_mode='Markdown'
-        )
-        return Constants.SELECTING_ROLE
 
-    async def agree_18_callback(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
-        """Callback setelah user setuju disclaimer"""
-        query = update.callback_query
-        await query.answer()
-        
-        user_id = query.from_user.id
-        logger.debug(f"User {user_id} agreed to 18+ disclaimer")
-        
-        # Tampilkan pilihan role dengan deskripsi
-        keyboard = [
-            [InlineKeyboardButton("👨‍👩‍👧‍👦 Ipar", callback_data="role_ipar")],
-            [InlineKeyboardButton("💼 Teman Kantor", callback_data="role_teman_kantor")],
-            [InlineKeyboardButton("💃 Janda", callback_data="role_janda")],
-            [InlineKeyboardButton("🦹 Pelakor", callback_data="role_pelakor")],
-            [InlineKeyboardButton("💍 Istri Orang", callback_data="role_istri_orang")],
-            [InlineKeyboardButton("🌿 PDKT", callback_data="role_pdkt")]
-        ]
-        reply_markup = InlineKeyboardMarkup(keyboard)
-        
-        await query.edit_message_text(
-            "✨ **Pilih Role untukku**\n\n"
-            "Setiap role punya karakter dan gaya bicara berbeda:\n"
-            "• 👨‍👩‍👧‍👦 **Ipar** - Saudara ipar yang nakal\n"
-            "• 💼 **Teman Kantor** - Rekan kerja yang mesra\n"
-            "• 💃 **Janda** - Janda muda yang genit\n"
-            "• 🦹 **Pelakor** - Perebut laki orang\n"
-            "• 💍 **Istri Orang** - Istri orang lain\n"
-            "• 🌿 **PDKT** - Sedang pendekatan\n\n"
-            "Pilih salah satu:",
-            reply_markup=reply_markup
-        )
-        return Constants.SELECTING_ROLE
+        # Cek apakah ada data hubungan di database (untuk kasus setelah /close)
+        rel = self.db.get_relationship(user_id)
+        if rel:
+            keyboard = [
+                [InlineKeyboardButton("✅ Lanjutkan", callback_data="unpause")],
+                [InlineKeyboardButton("🆕 Mulai Baru", callback_data="new")],
+            ]
+            reply_markup = InlineKeyboardMarkup(keyboard)
+            await update.message.reply_text(
+                "⚠️ Ada sesi yang tersimpan. Pilih:", 
+                reply_markup=reply_markup
+            )
+            return Constants.SELECTING_ROLE
+
+    # Tampilkan disclaimer 18+
+    disclaimer = self.get_disclaimer()
+    keyboard = [[InlineKeyboardButton("✅ Saya setuju (18+)", callback_data="agree_18")]]
+    reply_markup = InlineKeyboardMarkup(keyboard)
+
+    await update.message.reply_text(
+        disclaimer, 
+        reply_markup=reply_markup,
+        parse_mode='Markdown'
+    )
+    return Constants.SELECTING_ROLE
 
     async def role_callback(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         """Callback setelah user memilih role"""
@@ -6903,17 +6930,16 @@ class GadisUltimateV60:
         return Constants.ACTIVE_SESSION
 
     async def start_pause_callback(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
-        """Callback untuk memilih lanjutkan atau mulai baru saat ada session pause"""
+        """Callback untuk memilih lanjutkan atau mulai baru saat ada session tersimpan"""
         query = update.callback_query
         await query.answer()
         user_id = query.from_user.id
-        
+
         if query.data == "unpause":
-            # Lanjutkan session yang di-pause
+            # Coba unpause dari paused_sessions terlebih dahulu
             if self.unpause_session(user_id):
                 session = self.get_session(user_id)
                 clothing = session.bot_clothing if session else "pakaian biasa"
-                
                 await query.edit_message_text(
                     f"▶️ **Sesi dilanjutkan!**\n\n"
                     f"Aku masih pakai *{clothing}*\n\n"
@@ -6921,29 +6947,38 @@ class GadisUltimateV60:
                 )
                 return Constants.ACTIVE_SESSION
             else:
-                await query.edit_message_text(
-                    "⏰ **Sesi expired karena terlalu lama di-pause**\n"
-                    "Ketik /start untuk memulai baru."
-                )
-                return ConversationHandler.END
-                
-        elif query.data == "new":
-            # Mulai baru - hapus session pause
-            if user_id in self.paused_sessions:
-                del self.paused_sessions[user_id]
-            
-            # Tampilkan disclaimer
-            disclaimer = self.get_disclaimer()
-            keyboard = [[InlineKeyboardButton("✅ Saya setuju (18+)", callback_data="agree_18")]]
-            reply_markup = InlineKeyboardMarkup(keyboard)
-            await query.edit_message_text(
-                disclaimer, 
-                reply_markup=reply_markup,
-                parse_mode='Markdown'
-            )
-            return Constants.SELECTING_ROLE
-        
-        return ConversationHandler.END
+                # Jika tidak ada di paused_sessions, coba muat dari database
+                session = self.get_session(user_id)  # Akan memuat dari database jika ada
+                if session:
+                    # Hapus dari paused_sessions jika ada (untuk jaga-jaga)
+                    if user_id in self.paused_sessions:
+                        del self.paused_sessions[user_id]
+                    clothing = session.bot_clothing
+                    await query.edit_message_text(
+                        f"▶️ **Sesi dilanjutkan!**\n\n"
+                        f"Aku masih pakai *{clothing}*\n\n"
+                        f"Kangen... 💕"
+                    )
+                    return Constants.ACTIVE_SESSION
+                else:
+                    await query.edit_message_text("❌ Tidak ada sesi yang dapat dilanjutkan.")
+                    return ConversationHandler.END
+
+    elif query.data == "new":
+        # Mulai baru - hapus semua data
+        self.end_session(user_id)  # hard reset, hapus dari memory dan database
+        # Tampilkan disclaimer
+        disclaimer = self.get_disclaimer()
+        keyboard = [[InlineKeyboardButton("✅ Saya setuju (18+)", callback_data="agree_18")]]
+        reply_markup = InlineKeyboardMarkup(keyboard)
+        await query.edit_message_text(
+            disclaimer, 
+            reply_markup=reply_markup,
+            parse_mode='Markdown'
+        )
+        return Constants.SELECTING_ROLE
+
+    return ConversationHandler.END
 
     # Role-specific callbacks (untuk konsistensi)
     async def role_ipar_callback(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -6970,72 +7005,107 @@ class GadisUltimateV60:
         """Lihat status lengkap hubungan saat ini"""
         user_id = update.effective_user.id
         username = update.effective_user.username or update.effective_user.first_name
-        
+    
         self.log_command('status', user_id, username)
+        print(f"📊 STATUS COMMAND dipanggil oleh user {user_id}")
+    
+        try:
+            # Cek apakah user memiliki sesi aktif
+            session = self.get_session(user_id)
+            if not session:
+                print(f"⚠️ Session tidak ditemukan untuk user {user_id}")
+                await update.message.reply_text(
+                    "❌ Belum ada hubungan. /start dulu ya!"
+                )
+                return
         
-        # Cek apakah user memiliki sesi aktif
-        session = self.get_session(user_id)
-        if not session:
-            await update.message.reply_text(
-                "❌ Belum ada hubungan. /start dulu ya!"
+            print(f"✅ Session ditemukan: level {session.level}")
+        
+            # Dapatkan semua data
+            level_stats = self.leveling.get_user_stats(user_id)
+            profile = self.analyzer.get_profile(user_id)
+        
+            # Cek location system
+            try:
+                location_system = self.get_location_system(user_id)
+                loc_info = location_system.get_current_info()
+            except Exception as e:
+                print(f"⚠️ Error getting location: {e}")
+                loc_info = {"name": "ruang tamu", "emoji": "🏠", "description": "", "time_here": 0}
+        
+            # Cek position system
+            try:
+                position_system = self.get_position_system(user_id)
+                pos_info = position_system.get_current_info()
+            except Exception as e:
+                print(f"⚠️ Error getting position: {e}")
+                pos_info = {"name": "duduk", "emoji": "🧘", "action": "duduk"}
+        
+            # Hitung progress
+            progress_bar = self.leveling.get_progress_bar(user_id, 15)
+            remaining = self.leveling.get_estimated_time(user_id)
+        
+            # Format physical description
+            hijab_str = "Berhijab" if session.bot_physical.get('hijab') else "Tidak berhijab"
+        
+            # Handle missing physical attributes
+            hair = session.bot_physical.get('hair_style', '?')
+            height = session.bot_physical.get('height', '?')
+            weight = session.bot_physical.get('weight', '?')
+            breast = session.bot_physical.get('breast_desc', session.bot_physical.get('breast_size', '?'))
+            sensitive = session.bot_physical.get('most_sensitive_area', '?')
+        
+            physical_text = (
+                f"📏 **Fisikku:**\n"
+                f"• Rambut: {hair}\n"
+                f"• Tinggi: {height} cm\n"
+                f"• Berat: {weight} kg\n"
+                f"• Dada: {breast}\n"
+                f"• {hijab_str}\n"
+                f"• Area sensitif: **{sensitive}**\n"
+                f"• Pakaian: **{session.bot_clothing}**\n\n"
             )
-            return
         
-        # Dapatkan semua data
-        level_stats = self.leveling.get_user_stats(user_id)
-        profile = self.analyzer.get_profile(user_id)
-        location_system = self.get_location_system(user_id)
-        position_system = self.get_position_system(user_id)
+            # Format status
+            status = (
+                f"💕 **{session.bot_name} & Kamu**\n\n"
+                f"📊 **PROGRESS HUBUNGAN**\n"
+                f"Level: {session.level}/12\n"
+                f"Tahap: {session.stage.value}\n"
+                f"Progress: {progress_bar}\n"
+                f"Estimasi sisa: {remaining} menit\n"
+                f"Total pesan: {session.message_count}\n\n"
+                f"{physical_text}"
+                f"📍 **LOKASI & POSISI**\n"
+                f"{loc_info['emoji']} {loc_info['name']} - {loc_info['description']}\n"
+                f"{pos_info['emoji']} {pos_info['action']}\n"
+                f"Di sini selama: {TimeFormatter.seconds_to_text(loc_info['time_here'])}\n\n"
+                f"🔥 **KONDISI FISIK**\n"
+                f"Arousal: {session.arousal:.1f}\n"
+                f"Wetness: {session.wetness:.1f}\n"
+                f"Sentuhan sensitif: {session.touch_count}x\n"
+                f"Orgasme: {session.climax_count}x\n"
+                f"Sentuhan terakhir: {session.last_touch or '-'}\n\n"
+                f"👑 **MODE DOMINASI**\n"
+                f"Mode: {session.dominance_mode.value}\n\n"
+            )
         
-        loc_info = location_system.get_current_info()
-        pos_info = position_system.get_current_info()
+            # Tambah analisis preferensi
+            if profile:
+                status += self.analyzer.get_summary(user_id)
         
-        # Hitung progress
-        progress_bar = self.leveling.get_progress_bar(user_id, 15)
-        remaining = self.leveling.get_estimated_time(user_id)
+            print(f"✅ Status berhasil dibuat untuk user {user_id}")
         
-        # Format physical description
-        hijab_str = "Berhijab" if session.bot_physical.get('hijab') else "Tidak berhijab"
-        physical_text = (
-            f"📏 **Fisikku:**\n"
-            f"• Rambut: {session.bot_physical.get('hair_style', '?')}\n"
-            f"• Tinggi: {session.bot_physical.get('height', '?')} cm\n"
-            f"• Berat: {session.bot_physical.get('weight', '?')} kg\n"
-            f"• Dada: {session.bot_physical.get('breast_desc', '?')}\n"
-            f"• {hijab_str}\n"
-            f"• Area sensitif: **{session.bot_physical.get('most_sensitive_area', '?')}**\n"
-            f"• Pakaian: **{session.bot_clothing}**\n\n"
-        )
+            # Kirim dengan parse_mode Markdown (teks sudah aman)
+            await update.message.reply_text(status, parse_mode='Markdown')
         
-        # Format status
-        status = (
-            f"💕 **{session.bot_name} & Kamu**\n\n"
-            f"📊 **PROGRESS HUBUNGAN**\n"
-            f"Level: {session.level}/12\n"
-            f"Tahap: {session.stage.value}\n"
-            f"Progress: {progress_bar}\n"
-            f"Estimasi sisa: {remaining} menit\n"
-            f"Total pesan: {session.message_count}\n\n"
-            f"{physical_text}"
-            f"📍 **LOKASI & POSISI**\n"
-            f"{loc_info['emoji']} {loc_info['name']} - {loc_info['description']}\n"
-            f"{pos_info['emoji']} {pos_info['action']}\n"
-            f"Di sini selama: {TimeFormatter.seconds_to_text(loc_info['time_here'])}\n\n"
-            f"🔥 **KONDISI FISIK**\n"
-            f"Arousal: {session.arousal:.1f}\n"
-            f"Wetness: {session.wetness:.1f}\n"
-            f"Sentuhan sensitif: {session.touch_count}x\n"
-            f"Orgasme: {session.climax_count}x\n"
-            f"Sentuhan terakhir: {session.last_touch or '-'}\n\n"
-            f"👑 **MODE DOMINASI**\n"
-            f"Mode: {session.dominance_mode.value}\n\n"
-        )
-        
-        # Tambah analisis preferensi
-        if profile:
-            status += self.analyzer.get_summary(user_id)
-        
-        await update.message.reply_text(status, parse_mode='Markdown')
+        except Exception as e:
+            print(f"❌ ERROR di status_command: {e}")
+            import traceback
+            traceback.print_exc()
+            await update.message.reply_text(
+                "😔 Maaf, terjadi error saat mengambil status. Coba lagi ya!"
+            )
 
     # ===== DOMINANT COMMAND =====
     
@@ -7325,29 +7395,32 @@ class GadisUltimateV60:
         """Menampilkan bantuan lengkap"""
         user_id = update.effective_user.id
         username = update.effective_user.username or update.effective_user.first_name
-        
+    
         self.log_command('help', user_id, username)
-        
+        print(f"📚 HELP COMMAND from user {user_id}")
+    
         help_text = self.get_help_text(update)
-        await update.message.reply_text(help_text, parse_mode='Markdown')
+    
+        # Kirim tanpa parse_mode
+        await update.message.reply_text(help_text)
 
     async def admin_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         """Menu admin - menampilkan semua command admin"""
         user_id = update.effective_user.id
         username = update.effective_user.username or update.effective_user.first_name
-        
+    
         self.log_command('admin', user_id, username)
-        
-        # Cek apakah user adalah admin
+        print(f"🔐 ADMIN COMMAND from user {user_id}")
+    
         if not self.is_admin(user_id):
             await update.message.reply_text("⛔ Anda bukan admin.")
             return
-        
+    
         stats = self.get_stats()
-        
+    
         text = (
-            "🔐 **MENU ADMIN**\n\n"
-            "📋 **Command Admin:**\n"
+            "🔐 MENU ADMIN\n\n"
+            "📋 Command Admin:\n"
             "/admin - Tampilkan menu ini\n"
             "/stats - Lihat statistik bot\n"
             "/db_stats - Lihat statistik database\n"
@@ -7358,12 +7431,15 @@ class GadisUltimateV60:
             "/backup_db - Backup database\n"
             "/vacuum - Optimasi database\n"
             "/memory_stats <user_id> - Statistik memori\n\n"
-            "📊 **Status Bot:**\n"
+            "📊 Status Bot:\n"
             f"• Uptime: {stats['uptime']}\n"
             f"• User aktif: {stats['active_users']}\n"
             f"• Total user: {stats['total_users']}\n"
             f"• Total pesan: {stats['total_messages']}"
         )
+    
+    # Kirim tanpa parse_mode
+    await update.message.reply_text(text)
         
         await update.message.reply_text(text, parse_mode='Markdown')
 
@@ -7799,11 +7875,22 @@ class GadisUltimateV60:
 
     async def handle_message(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         """Handle semua pesan dari user"""
-        print(f"📨 MESSAGE HANDLER DIPANGGIL! User: {update.effective_user.id}")
-        
+        if not update.message or not update.message.text:
+            return
+    
         user_id = update.effective_user.id
-        username = update.effective_user.username or update.effective_user.first_name
-        user_message = sanitize_message(update.message.text)
+        user_message = update.message.text
+    
+        # Log untuk debugging
+        print(f"📨 Pesan dari user {user_id}: {user_message[:50]}")
+    
+        # Cek apakah itu command
+        if user_message.startswith('/'):
+            print(f"📝 Command terdeteksi: {user_message}")
+            # Biarkan CommandHandler yang memproses, jangan dihandle di sini
+            return
+    
+    # ... kode untuk pesan biasa ...
         
         # Update total messages counter
         self.total_messages += 1
@@ -8457,7 +8544,18 @@ asyncio.set_event_loop(global_loop)
 def run_global_loop():
     """Jalankan global loop di thread terpisah"""
     asyncio.set_event_loop(global_loop)
-    global_loop.run_forever()
+    try:
+        global_loop.run_forever()
+    except Exception as e:
+        print(f"❌ Global loop error: {e}")
+        # Restart loop jika crash
+        global_loop.close()
+        new_loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(new_loop)
+        # Update global variable
+        global global_loop
+        global_loop = new_loop
+        run_global_loop()
 
 # Jalankan loop di thread terpisah
 loop_thread = threading.Thread(target=run_global_loop, daemon=True)
@@ -8480,7 +8578,7 @@ def webhook():
             # Buat update object
             update = Update.de_json(update_data, bot_instance.application.bot)
             
-            # Kirim ke global loop
+            # Gunakan global loop - JANGAN BUAT LOOP BARU!
             asyncio.run_coroutine_threadsafe(
                 bot_instance.application.process_update(update),
                 global_loop
