@@ -836,67 +836,67 @@ class HippocampusMemory:
         return embedding
     
     def retrieve_relevant(self, 
-                          query: str, 
-                          top_k: int = 5,
-                          memory_types: List[MemoryType] = None,
-                          min_importance: float = 0.3,
-                          use_semantic: bool = True) -> List[MemoryItem]:
-        """
-        Cari memori yang relevan dengan query
-        Menggunakan kombinasi:
-        - Semantic similarity (jika use_semantic=True)
-        - Keyword matching
-        - Recency
-        - Importance
-        """
+                      query: str, 
+                      top_k: int = 5,
+                      memory_types: List[MemoryType] = None,
+                      min_importance: float = 0.3,
+                      use_semantic: bool = True) -> List[MemoryItem]:
+    """
+    Cari memori yang relevan dengan query
+    Menggunakan kombinasi:
+    - Semantic similarity (jika use_semantic=True)
+    - Keyword matching
+    - Recency
+    - Importance
+    """
     query_embed = self._generate_embedding(query) if use_semantic else None
     query_lower = query.lower()
-        
-        # Filter berdasarkan tipe dan importance
-        candidates = [
-            m for m in self.memories 
-            if (not memory_types or m.memory_type in memory_types)
-            and m.importance >= min_importance
-        ]
-        
-        if not candidates:
-            return []
-        
-        scored = []
-        for mem in candidates:
-            # Semantic score
-            semantic_score = 0
-            if use_semantic and mem.embedding is not None:
-                # Cosine similarity
-                semantic_score = np.dot(query_embed, mem.embedding) / (
-                    np.linalg.norm(query_embed) * np.linalg.norm(mem.embedding) + 1e-8
-                )
-            
-            # Keyword score
-            keyword_score = 0
-            mem_lower = mem.content.lower()
-            for word in query_lower.split():
-                if len(word) > 3 and word in mem_lower:
-                    keyword_score += 0.2
-            
-            # Combined score
-            combined_score = (
-                semantic_score * 0.5 +
-                keyword_score * 0.3 +
-                mem.get_relevance_score() * 0.2
+    
+    # Filter berdasarkan tipe dan importance
+    candidates = [
+        m for m in self.memories 
+        if (not memory_types or m.memory_type in memory_types)
+        and m.importance >= min_importance
+    ]
+    
+    if not candidates:
+        return []
+    
+    scored = []
+    for mem in candidates:
+        # Semantic score
+        semantic_score = 0
+        if use_semantic and mem.embedding is not None:
+            # Cosine similarity
+            semantic_score = np.dot(query_embed, mem.embedding) / (
+                np.linalg.norm(query_embed) * np.linalg.norm(mem.embedding) + 1e-8
             )
-            
-            scored.append((combined_score, mem))
         
-        scored.sort(key=lambda x: x[0], reverse=True)
+        # Keyword score
+        keyword_score = 0
+        mem_lower = mem.content.lower()
+        for word in query_lower.split():
+            if len(word) > 3 and word in mem_lower:
+                keyword_score += 0.2
         
-        # Update access count untuk yang terpilih
-        results = []
-        for score, mem in scored[:top_k]:
-            mem.access()
-            results.append(mem)
+        # Combined score
+        combined_score = (
+            semantic_score * 0.5 +
+            keyword_score * 0.3 +
+            mem.get_relevance_score() * 0.2
+        )
         
-        return results
+        scored.append((combined_score, mem))
+    
+    scored.sort(key=lambda x: x[0], reverse=True)
+    
+    # Update access count untuk yang terpilih
+    results = []
+    for score, mem in scored[:top_k]:
+        mem.access()
+        results.append(mem)
+    
+    return results
     
     def get_recent_memories(self, hours: int = 24, memory_types: List[MemoryType] = None) -> List[MemoryItem]:
         """Dapatkan memori dari beberapa jam terakhir"""
